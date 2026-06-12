@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-salon: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-success: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    --gradient-dark: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 100%);
+  }
+
+  body {
+    @apply bg-dark-bg text-dark-text font-sans antialiased;
+  }
+
+  * {
+    @apply border-dark-border;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-dark-card/80 backdrop-blur-xl border border-dark-border rounded-2xl shadow-lg shadow-black/20;
+  }
+
+  .glass-input {
+    @apply bg-dark-surface/60 backdrop-blur-sm border border-dark-border rounded-xl px-4 py-3
+           text-dark-text placeholder-dark-muted
+           focus:outline-none focus:ring-2 focus:ring-salon-500/50 focus:border-salon-500/50
+           transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-salon-500 to-salon-600 text-white font-semibold
+           px-6 py-3 rounded-xl shadow-lg shadow-salon-500/25
+           hover:from-salon-400 hover:to-salon-500 hover:shadow-salon-500/40
+           active:scale-[0.98] transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-dark-surface text-dark-text font-medium
+           px-6 py-3 rounded-xl border border-dark-border
+           hover:bg-dark-border hover:border-dark-muted/30
+           active:scale-[0.98] transition-all duration-200;
+  }
+
+  .btn-ghost {
+    @apply text-dark-muted font-medium px-4 py-2 rounded-lg
+           hover:bg-dark-surface hover:text-dark-text
+           transition-all duration-200;
+  }
+
+  .btn-danger {
+    @apply bg-red-500/10 text-red-400 font-medium
+           px-6 py-3 rounded-xl border border-red-500/20
+           hover:bg-red-500/20 hover:border-red-500/40
+           active:scale-[0.98] transition-all duration-200;
+  }
+
+  .stat-card {
+    @apply glass-card p-6 flex flex-col gap-2;
+  }
+
+  .stat-value {
+    @apply text-2xl font-bold bg-gradient-to-r from-white to-dark-muted bg-clip-text text-transparent;
+  }
+
+  .stat-label {
+    @apply text-sm text-dark-muted font-medium;
+  }
+
+  .tab-active {
+    @apply bg-salon-500/20 text-salon-400 border-salon-500/50;
+  }
+
+  .tab-inactive {
+    @apply text-dark-muted hover:text-dark-text hover:bg-dark-surface;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+
+  .modal-content {
+    @apply glass-card p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in;
+  }
+
+  .table-header {
+    @apply text-xs font-semibold text-dark-muted uppercase tracking-wider px-4 py-3;
+  }
+
+  .table-cell {
+    @apply px-4 py-3 text-sm;
+  }
+
+  .table-row {
+    @apply border-b border-dark-border/50 hover:bg-dark-surface/50 transition-colors;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-dark-muted font-medium
+           hover:bg-dark-surface hover:text-dark-text transition-all duration-200;
+  }
+
+  .sidebar-link-active {
+    @apply bg-salon-500/15 text-salon-400 hover:bg-salon-500/20;
+  }
+
+  .notification-popup {
+    @apply glass-card p-4 border-salon-500/50 animate-slide-in-right
+           fixed top-4 right-4 z-[100] max-w-sm shadow-2xl;
+  }
+
+  .loading-spinner {
+    @apply animate-spin rounded-full border-2 border-dark-border border-t-salon-500;
+  }
+
+  .gauge-track {
+    @apply bg-dark-surface rounded-full overflow-hidden;
+  }
+
+  .gauge-fill {
+    @apply h-full rounded-full transition-all duration-1000 ease-out;
+    background: linear-gradient(90deg, #f093fb, #f5576c, #ec4899);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-border rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-dark-muted;
+}
+
+/* Custom calendar grid */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.time-grid {
+  display: grid;
+  grid-template-rows: repeat(24, 60px);
+}
