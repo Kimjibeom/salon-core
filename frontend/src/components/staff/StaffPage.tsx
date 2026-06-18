@@ -47,6 +47,16 @@ export default function StaffPage() {
     }
   };
 
+  const handleDeleteStaff = async (id: string, name: string) => {
+    if (!window.confirm(`정말 ${name} 직원을 삭제하시겠습니까?`)) return;
+    try {
+      await api.delete(`/api/staffs/${id}`);
+      fetchData();
+    } catch (err: any) {
+      alert(`직원 삭제 실패: ${err.message || '알 수 없는 오류가 발생했습니다.'}`);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -173,6 +183,7 @@ export default function StaffPage() {
                 <th className="table-header text-right">점판 수수료율</th>
                 <th className="table-header text-right">기본급</th>
                 <th className="table-header text-right">월 목표</th>
+                <th className="table-header text-center">관리</th>
               </tr>
             </thead>
             <tbody>
@@ -188,6 +199,14 @@ export default function StaffPage() {
                   <td className="table-cell text-right">{s.product_incentive_rate}%</td>
                   <td className="table-cell text-right">{formatCurrency(s.base_salary)}</td>
                   <td className="table-cell text-right">{formatCurrency(s.monthly_target)}</td>
+                  <td className="table-cell text-center">
+                    <button
+                      onClick={() => handleDeleteStaff(s.id, s.name)}
+                      className="px-3 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-md text-xs transition-colors"
+                    >
+                      삭제
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
