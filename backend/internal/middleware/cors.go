@@ -4,6 +4,7 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -60,7 +61,10 @@ func NewRateLimiter(rps, burst int) *RateLimiter {
 }
 
 // Simple in-memory rate limiter using a per-IP token bucket
-var ipLastRequest = make(map[string]time.Time)
+var (
+	ipLastRequest   = make(map[string]time.Time)
+	ipLastRequestMu sync.Mutex
+)
 
 // RateLimit returns a rate limiting middleware.
 func RateLimit(rps int) gin.HandlerFunc {
@@ -70,13 +74,16 @@ func RateLimit(rps int) gin.HandlerFunc {
 		ip := c.ClientIP()
 		now := time.Now()
 
+		ipLastRequestMu.Lock()
 		if last, ok := ipLastRequest[ip]; ok {
 			if now.Sub(last) < minInterval {
+				ipLastRequestMu.Unlock()
 				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 				return
 			}
 		}
 		ipLastRequest[ip] = now
+		ipLastRequestMu.Unlock()
 		c.Next()
 	}
 }
