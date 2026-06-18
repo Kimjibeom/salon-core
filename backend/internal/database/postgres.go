@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -32,6 +33,9 @@ func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 		d := net.Dialer{Timeout: 10 * time.Second}
 		return d.DialContext(ctx, "tcp4", addr)
 	}
+
+	// Disable prepared statements for Supabase PgBouncer (transaction mode) compatibility
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
