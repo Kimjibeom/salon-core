@@ -2,7 +2,9 @@
 package handler
 
 import (
+	"log"
 	"net/http"
+	"strings"
 
 	"github.com/Kimjibeom/salon-core/backend/internal/model"
 	"github.com/Kimjibeom/salon-core/backend/internal/service"
@@ -48,6 +50,11 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	staff, err := h.authService.Register(c.Request.Context(), &req)
 	if err != nil {
+		log.Printf("Register error: %v", err)
+		if strings.Contains(err.Error(), "staffs_email_key") || strings.Contains(err.Error(), "duplicate key value") {
+			c.JSON(http.StatusConflict, gin.H{"error": "이미 등록된 이메일입니다."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create staff member"})
 		return
 	}

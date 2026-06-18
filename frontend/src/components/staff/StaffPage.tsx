@@ -23,9 +23,9 @@ export default function StaffPage() {
       ]);
       setStaffList(staffs || []);
       setPerformance(perf || []);
-    } catch {
-      setStaffList([]);
-      setPerformance([]);
+    } catch (err) {
+      console.error('Failed to fetch staff data:', err);
+      // Removed setStaffList([]) and setPerformance([]) to avoid wiping data on temporary errors
     }
   }, [monthStart, today]);
 
@@ -42,7 +42,9 @@ export default function StaffPage() {
       });
       setShowCreateModal(false);
       fetchData();
-    } catch { /* error handled */ }
+    } catch (err: any) {
+      alert(`직원 등록 실패: ${err.message || '알 수 없는 오류가 발생했습니다.'}`);
+    }
   };
 
   return (
@@ -229,10 +231,17 @@ function CreateStaffModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
               </select>
             </div>
           </div>
-          <div>
-            <label htmlFor="staff-email" className="block text-sm text-dark-muted mb-1">이메일 *</label>
-            <input id="staff-email" type="email" className="glass-input w-full" value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="staff-email" className="block text-sm text-dark-muted mb-1">이메일 *</label>
+              <input id="staff-email" type="email" className="glass-input w-full" value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            </div>
+            <div>
+              <label htmlFor="staff-phone" className="block text-sm text-dark-muted mb-1">연락처</label>
+              <input id="staff-phone" type="tel" className="glass-input w-full" value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
+            </div>
           </div>
           <div>
             <label htmlFor="staff-password" className="block text-sm text-dark-muted mb-1">비밀번호 * (8자 이상)</label>
