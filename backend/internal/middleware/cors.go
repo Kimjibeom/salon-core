@@ -60,29 +60,38 @@ func NewRateLimiter(rps, burst int) *RateLimiter {
 	return &RateLimiter{rps: rps, burst: burst}
 }
 
-// Simple in-memory rate limiter using a per-IP token bucket
+// Simple in-memory rate limiter using a fixed window counter
+type rateLimitInfo struct {
+	count int
+	reset time.Time
+}
+
 var (
-	ipLastRequest   = make(map[string]time.Time)
+	ipLastRequest   = make(map[string]*rateLimitInfo)
 	ipLastRequestMu sync.Mutex
 )
 
 // RateLimit returns a rate limiting middleware.
 func RateLimit(rps int) gin.HandlerFunc {
-	minInterval := time.Second / time.Duration(rps)
-
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		now := time.Now()
 
 		ipLastRequestMu.Lock()
-		if last, ok := ipLastRequest[ip]; ok {
-			if now.Sub(last) < minInterval {
+		info, ok := ipLastRequest[ip]
+		if !ok || now.After(info.reset) {
+			ipLastRequest[ip] = &rateLimitInfo{
+				count: 1,
+				reset: now.Add(time.Second),
+			}
+		} else {
+			if info.count >= rps {
 				ipLastRequestMu.Unlock()
 				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
 				return
 			}
+			info.count++
 		}
-		ipLastRequest[ip] = now
 		ipLastRequestMu.Unlock()
 		c.Next()
 	}
