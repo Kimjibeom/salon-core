@@ -48,6 +48,7 @@ func main() {
 	membershipRepo := repository.NewMembershipRepository(pool)
 	reservationRepo := repository.NewReservationRepository(pool)
 	saleRepo := repository.NewSaleRepository(pool)
+	serviceRepo := repository.NewServiceMenuRepository(pool)
 
 	// Initialize WebSocket hub
 	hub := websocket.NewHub()
@@ -61,6 +62,7 @@ func main() {
 	membershipService := service.NewMembershipService(membershipRepo)
 	reservationService := service.NewReservationService(reservationRepo, customerRepo, hub)
 	saleService := service.NewSaleService(saleRepo, membershipRepo, customerRepo)
+	serviceService := service.NewServiceMenuService(serviceRepo)
 	analyticsService := service.NewAnalyticsService(saleRepo)
 	marketingService := service.NewMarketingService(saleRepo)
 
@@ -72,6 +74,7 @@ func main() {
 	membershipHandler := handler.NewMembershipHandler(membershipService)
 	reservationHandler := handler.NewReservationHandler(reservationService)
 	saleHandler := handler.NewSaleHandler(saleService)
+	serviceHandler := handler.NewServiceMenuHandler(serviceService)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	marketingHandler := handler.NewMarketingHandler(marketingService)
 
@@ -128,6 +131,15 @@ func main() {
 
 			// Staff registration (admin only)
 			protected.POST("/auth/register", middleware.RequireRole("admin"), authHandler.Register)
+
+			// Service Menu management
+			services := protected.Group("/services")
+			{
+				services.GET("", serviceHandler.GetAll)
+				services.POST("", middleware.RequireRole("admin"), serviceHandler.Create)
+				services.PUT("/:id", middleware.RequireRole("admin"), serviceHandler.Update)
+				services.DELETE("/:id", middleware.RequireRole("admin"), serviceHandler.Delete)
+			}
 
 			// Customer management
 			customers := protected.Group("/customers")

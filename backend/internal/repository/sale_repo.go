@@ -22,10 +22,10 @@ func NewSaleRepository(pool *pgxpool.Pool) *SaleRepository {
 
 // Create inserts a new sale record.
 func (r *SaleRepository) Create(ctx context.Context, s *model.Sale) error {
-	query := `INSERT INTO sales (reservation_id, customer_id, staff_id, item_name, total_amount, category, payment_method, card_amount, cash_amount, membership_amount, card_commission_rate, membership_id, memo)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, created_at`
+	query := `INSERT INTO sales (reservation_id, customer_id, staff_id, service_id, item_name, total_amount, category, payment_method, card_amount, cash_amount, membership_amount, card_commission_rate, membership_id, memo)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, created_at`
 	return r.pool.QueryRow(ctx, query,
-		s.ReservationID, s.CustomerID, s.StaffID, s.ItemName, s.TotalAmount,
+		s.ReservationID, s.CustomerID, s.StaffID, s.ServiceID, s.ItemName, s.TotalAmount,
 		s.Category, s.PaymentMethod, s.CardAmount, s.CashAmount,
 		s.MembershipAmount, s.CardCommissionRate, s.MembershipID, s.Memo,
 	).Scan(&s.ID, &s.CreatedAt)
@@ -35,7 +35,7 @@ func (r *SaleRepository) Create(ctx context.Context, s *model.Sale) error {
 func (r *SaleRepository) GetByID(ctx context.Context, id string) (*model.Sale, error) {
 	s := &model.Sale{}
 	query := `SELECT s.id, s.reservation_id, s.customer_id, s.staff_id, COALESCE(st.name, ''), COALESCE(c.name, ''),
-		s.item_name, s.total_amount, s.category, s.payment_method,
+		s.service_id, s.item_name, s.total_amount, s.category, s.payment_method,
 		s.card_amount, s.cash_amount, s.membership_amount, s.card_commission_rate, s.membership_id, s.memo, s.created_at
 		FROM sales s
 		LEFT JOIN staffs st ON s.staff_id = st.id
@@ -43,7 +43,7 @@ func (r *SaleRepository) GetByID(ctx context.Context, id string) (*model.Sale, e
 		WHERE s.id = $1`
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&s.ID, &s.ReservationID, &s.CustomerID, &s.StaffID, &s.StaffName, &s.CustomerName,
-		&s.ItemName, &s.TotalAmount, &s.Category, &s.PaymentMethod,
+		&s.ServiceID, &s.ItemName, &s.TotalAmount, &s.Category, &s.PaymentMethod,
 		&s.CardAmount, &s.CashAmount, &s.MembershipAmount, &s.CardCommissionRate,
 		&s.MembershipID, &s.Memo, &s.CreatedAt,
 	)
@@ -56,7 +56,7 @@ func (r *SaleRepository) GetByID(ctx context.Context, id string) (*model.Sale, e
 // ListByDateRange retrieves sales within a date range.
 func (r *SaleRepository) ListByDateRange(ctx context.Context, startDate, endDate string) ([]model.Sale, error) {
 	query := `SELECT s.id, s.reservation_id, s.customer_id, s.staff_id, COALESCE(st.name, ''), COALESCE(c.name, ''),
-		s.item_name, s.total_amount, s.category, s.payment_method,
+		s.service_id, s.item_name, s.total_amount, s.category, s.payment_method,
 		s.card_amount, s.cash_amount, s.membership_amount, s.card_commission_rate, s.membership_id, s.memo, s.created_at
 		FROM sales s
 		LEFT JOIN staffs st ON s.staff_id = st.id
@@ -75,7 +75,7 @@ func (r *SaleRepository) ListByDateRange(ctx context.Context, startDate, endDate
 // ListByStaff retrieves sales for a specific staff within a date range.
 func (r *SaleRepository) ListByStaff(ctx context.Context, staffID, startDate, endDate string) ([]model.Sale, error) {
 	query := `SELECT s.id, s.reservation_id, s.customer_id, s.staff_id, COALESCE(st.name, ''), COALESCE(c.name, ''),
-		s.item_name, s.total_amount, s.category, s.payment_method,
+		s.service_id, s.item_name, s.total_amount, s.category, s.payment_method,
 		s.card_amount, s.cash_amount, s.membership_amount, s.card_commission_rate, s.membership_id, s.memo, s.created_at
 		FROM sales s
 		LEFT JOIN staffs st ON s.staff_id = st.id
@@ -418,7 +418,7 @@ func scanSales(rows salesRows) ([]model.Sale, error) {
 		var s model.Sale
 		if err := rows.Scan(
 			&s.ID, &s.ReservationID, &s.CustomerID, &s.StaffID, &s.StaffName, &s.CustomerName,
-			&s.ItemName, &s.TotalAmount, &s.Category, &s.PaymentMethod,
+			&s.ServiceID, &s.ItemName, &s.TotalAmount, &s.Category, &s.PaymentMethod,
 			&s.CardAmount, &s.CashAmount, &s.MembershipAmount, &s.CardCommissionRate,
 			&s.MembershipID, &s.Memo, &s.CreatedAt,
 		); err != nil {

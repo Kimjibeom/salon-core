@@ -4,11 +4,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { formatCurrency, getCategoryLabel, getPaymentLabel } from '@/lib/utils';
-import type { Staff, Membership, Sale } from '@/types';
+import type { Staff, Membership, Sale, ServiceMenu } from '@/types';
 
 export default function POSPage() {
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [recentSales, setRecentSales] = useState<Sale[]>([]);
+  const [serviceList, setServiceList] = useState<ServiceMenu[]>([]);
   const [showSaleModal, setShowSaleModal] = useState(false);
 
   const fetchStaff = useCallback(async () => {
@@ -26,7 +27,14 @@ export default function POSPage() {
     } catch { setRecentSales([]); }
   }, []);
 
-  useEffect(() => { fetchStaff(); fetchRecentSales(); }, [fetchStaff, fetchRecentSales]);
+  const fetchServices = useCallback(async () => {
+    try {
+      const data = await api.get<ServiceMenu[]>('/api/services');
+      setServiceList(data || []);
+    } catch { setServiceList([]); }
+  }, []);
+
+  useEffect(() => { fetchStaff(); fetchRecentSales(); fetchServices(); }, [fetchStaff, fetchRecentSales, fetchServices]);
 
   const todayTotal = recentSales.reduce((sum, s) => sum + s.total_amount, 0);
   const serviceTotal = recentSales.filter((s) => s.category === 'service').reduce((sum, s) => sum + s.total_amount, 0);
@@ -111,19 +119,21 @@ export default function POSPage() {
 
       {/* Sale Entry Modal */}
       {showSaleModal && (
-        <SaleEntryModal staffList={staffList} onClose={() => setShowSaleModal(false)} onSubmit={handleSubmitSale} />
+        <SaleEntryModal staffList={staffList} serviceList={serviceList} onClose={() => setShowSaleModal(false)} onSubmit={handleSubmitSale} />
       )}
     </div>
   );
 }
 
-function SaleEntryModal({ staffList, onClose, onSubmit }: {
+function SaleEntryModal({ staffList, serviceList, onClose, onSubmit }: {
   staffList: Staff[];
+  serviceList: ServiceMenu[];
   onClose: () => void;
   onSubmit: (data: Record<string, unknown>) => void;
 }) {
   const [form, setForm] = useState({
     staff_id: '',
+    service_id: '',
     item_name: '',
     total_amount: '',
     category: 'service' as 'service' | 'product',
@@ -148,6 +158,22 @@ function SaleEntryModal({ staffList, onClose, onSubmit }: {
     }));
   };
 
+  const handleServiceChange = (id: string) => {
+    const service = serviceList.find(s => s.id === id);
+    if (!service) {
+      setForm(prev => ({ ...prev, service_id: '', item_name: '', total_amount: '0' }));
+      return;
+    }
+    
+    setForm(prev => ({
+      ...prev,
+      service_id: id,
+      item_name: service.name,
+      category: service.category === '점판' ? 'product' : 'service',
+      total_amount: service.price.toString()
+    }));
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content max-w-xl" onClick={(e) => e.stopPropagation()}>
@@ -166,10 +192,25 @@ function SaleEntryModal({ staffList, onClose, onSubmit }: {
           {/* Item & Category */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="sale-item" className="block text-sm text-dark-muted mb-1">항목명 *</label>
-              <input id="sale-item" className="glass-input w-full" value={form.item_name}
-                onChange={(e) => setForm({ ...form, item_name: e.target.value })} placeholder="커트, 염색, 제품명..." required />
+              <label htmlFor="sale-service" className="block text-sm text-dark-muted mb-1">시술 메뉴</label>
+              <select id="sale-service" className="glass-input w-full" value={form.service_id}
+                onChange={(e) => handleServiceChange(e.target.value)}>
+                <option value="">메뉴 선택 (또는 직접 입력)</option>
+                {serviceList.filter(s => s.is_active).map((s) => (
+                  <option key={s.id} value={s.id}>{s.category} - {s.name} ({formatCurrency(s.price)})</option>
+                ))}
+              </select>
             </div>
+            {!form.service_id && (
+              <div>
+                <label htmlFor="sale-item" className="block text-sm text-dark-muted mb-1">항목명 *</label>
+                <input id="sale-item" className="glass-input w-full" value={form.item_name}
+                  onChange={(e) => setForm({ ...form, item_name: e.target.value })} placeholder="직접 입력" required />
+              </div>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-dark-muted mb-1">분류 *</label>
               <div className="flex gap-2">
@@ -253,6 +294,7 @@ function SaleEntryModal({ staffList, onClose, onSubmit }: {
             const amount = parseFloat(form.total_amount) || 0;
             onSubmit({
               staff_id: form.staff_id,
+              service_id: form.service_id || undefined,
               item_name: form.item_name,
               total_amount: amount,
               category: form.category,

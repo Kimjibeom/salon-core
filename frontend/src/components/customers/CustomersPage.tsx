@@ -4,12 +4,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { maskPhone, formatDate } from '@/lib/utils';
-import type { Customer, CustomerWithHistory, Chart } from '@/types';
+import type { Customer, CustomerWithHistory, Chart, ServiceMenu } from '@/types';
 
 export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithHistory | null>(null);
+  const [serviceList, setServiceList] = useState<ServiceMenu[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,10 +28,19 @@ export default function CustomersPage() {
     setIsLoading(false);
   }, [searchQuery]);
 
+  const fetchServices = useCallback(async () => {
+    try {
+      const data = await api.get<ServiceMenu[]>('/api/services');
+      setServiceList(data || []);
+    } catch { setServiceList([]); }
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(fetchCustomers, 300);
     return () => clearTimeout(timer);
   }, [fetchCustomers]);
+
+  useEffect(() => { fetchServices(); }, [fetchServices]);
 
   const handleSelectCustomer = async (id: string) => {
     try {
@@ -110,7 +120,7 @@ export default function CustomersPage() {
         {/* Customer Detail / History Book */}
         <div className="lg:col-span-3">
           {selectedCustomer ? (
-            <CustomerDetail customer={selectedCustomer} onRefresh={() => handleSelectCustomer(selectedCustomer.id)} />
+            <CustomerDetail customer={selectedCustomer} serviceList={serviceList} onRefresh={() => handleSelectCustomer(selectedCustomer.id)} />
           ) : (
             <div className="glass-card p-12 text-center">
               <p className="text-4xl mb-3">📋</p>
@@ -128,7 +138,7 @@ export default function CustomersPage() {
   );
 }
 
-function CustomerDetail({ customer, onRefresh }: { customer: CustomerWithHistory; onRefresh: () => void }) {
+function CustomerDetail({ customer, serviceList, onRefresh }: { customer: CustomerWithHistory; serviceList: ServiceMenu[]; onRefresh: () => void }) {
   const [showChartForm, setShowChartForm] = useState(false);
 
   const handleCreateChart = async (form: Record<string, string>) => {
@@ -204,7 +214,7 @@ function CustomerDetail({ customer, onRefresh }: { customer: CustomerWithHistory
         </div>
 
         {showChartForm && (
-          <ChartForm onSubmit={handleCreateChart} onCancel={() => setShowChartForm(false)} />
+          <ChartForm serviceList={serviceList} onSubmit={handleCreateChart} onCancel={() => setShowChartForm(false)} />
         )}
 
         <div className="space-y-3">
@@ -255,13 +265,32 @@ function ChartEntry({ chart }: { chart: Chart }) {
   );
 }
 
-function ChartForm({ onSubmit, onCancel }: { onSubmit: (form: Record<string, string>) => void; onCancel: () => void }) {
-  const [form, setForm] = useState({ staff_id: '', recipe: '', treatment_name: '', notes: '' });
+function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMenu[]; onSubmit: (form: Record<string, string>) => void; onCancel: () => void }) {
+  const [form, setForm] = useState({ staff_id: '', service_id: '', recipe: '', treatment_name: '', notes: '' });
+
+  const handleServiceChange = (id: string) => {
+    const service = serviceList.find(s => s.id === id);
+    if (service) {
+      setForm({ ...form, service_id: id, treatment_name: service.name });
+    } else {
+      setForm({ ...form, service_id: '', treatment_name: '' });
+    }
+  };
+
   return (
     <div className="glass-card p-4 mb-4 border-salon-500/30">
       <div className="space-y-3">
-        <input id="chart-treatment" className="glass-input w-full text-sm" placeholder="시술명" value={form.treatment_name}
-          onChange={(e) => setForm({ ...form, treatment_name: e.target.value })} />
+        <select className="glass-input w-full text-sm" value={form.service_id}
+          onChange={(e) => handleServiceChange(e.target.value)}>
+          <option value="">시술 메뉴 선택 (또는 직접 입력)</option>
+          {serviceList.filter(s => s.is_active).map(s => (
+            <option key={s.id} value={s.id}>{s.category} - {s.name}</option>
+          ))}
+        </select>
+        {!form.service_id && (
+          <input id="chart-treatment" className="glass-input w-full text-sm" placeholder="시술명 직접 입력" value={form.treatment_name}
+            onChange={(e) => setForm({ ...form, treatment_name: e.target.value })} />
+        )}
         <textarea id="chart-recipe" className="glass-input w-full text-sm" rows={3} placeholder="레시피 (약제, 시간 등)" value={form.recipe}
           onChange={(e) => setForm({ ...form, recipe: e.target.value })} />
         <textarea id="chart-notes" className="glass-input w-full text-sm" rows={2} placeholder="메모" value={form.notes}

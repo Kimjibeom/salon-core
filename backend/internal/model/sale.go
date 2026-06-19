@@ -13,6 +13,7 @@ type Sale struct {
 	StaffID           string    `json:"staff_id"`
 	StaffName         string    `json:"staff_name,omitempty"`
 	CustomerName      string    `json:"customer_name,omitempty"`
+	ServiceID         *string   `json:"service_id,omitempty"`
 	ItemName          string    `json:"item_name"`
 	TotalAmount       float64   `json:"total_amount"`
 	Category          string    `json:"category"` // service, product
@@ -30,8 +31,9 @@ type Sale struct {
 type SaleCreateRequest struct {
 	ReservationID      string  `json:"reservation_id" binding:"omitempty,uuid"`
 	CustomerID         string  `json:"customer_id" binding:"omitempty,uuid"`
+	ServiceID          string  `json:"service_id" binding:"omitempty,uuid"`
 	StaffID            string  `json:"staff_id" binding:"required,uuid"`
-	ItemName           string  `json:"item_name" binding:"required,max=200"`
+	ItemName           string  `json:"item_name" binding:"max=200"`
 	TotalAmount        float64 `json:"total_amount" binding:"required,gt=0"`
 	Category           string  `json:"category" binding:"required,oneof=service product"`
 	PaymentMethod      string  `json:"payment_method" binding:"required,oneof=card cash membership mixed"`

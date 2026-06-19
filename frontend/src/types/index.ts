@@ -15,6 +15,17 @@ export interface Staff {
   updated_at: string;
 }
 
+export interface ServiceMenu {
+  id: string;
+  category: string;
+  name: string;
+  price: number;
+  duration: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -39,6 +50,7 @@ export interface Chart {
   customer_id: string;
   staff_id: string;
   staff_name?: string;
+  service_id?: string;
   recipe: string;
   treatment_name?: string;
   treatment_duration?: number;
@@ -86,6 +98,7 @@ export interface Reservation {
   customer_name: string;
   customer_phone: string;
   staff_name?: string;
+  service_id?: string;
   treatment_name?: string;
   date: string;
   start_time: string;
@@ -111,6 +124,7 @@ export interface Sale {
   staff_id: string;
   staff_name?: string;
   customer_name?: string;
+  service_id?: string;
   item_name: string;
   total_amount: number;
   category: 'service' | 'product';

@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { formatTime, getStatusColor, getStatusLabel, getSourceLabel } from '@/lib/utils';
-import type { Reservation, WaitingQueueEntry, Staff } from '@/types';
+import type { Reservation, WaitingQueueEntry, Staff, ServiceMenu } from '@/types';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -14,6 +14,7 @@ export default function ReservationsPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [waitingQueue, setWaitingQueue] = useState<WaitingQueueEntry[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [serviceList, setServiceList] = useState<ServiceMenu[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -40,7 +41,14 @@ export default function ReservationsPage() {
     } catch { setStaffList([]); }
   }, []);
 
-  useEffect(() => { fetchReservations(); fetchWaitingQueue(); fetchStaff(); }, [fetchReservations, fetchWaitingQueue, fetchStaff]);
+  const fetchServices = useCallback(async () => {
+    try {
+      const data = await api.get<ServiceMenu[]>('/api/services');
+      setServiceList(data || []);
+    } catch { setServiceList([]); }
+  }, []);
+
+  useEffect(() => { fetchReservations(); fetchWaitingQueue(); fetchStaff(); fetchServices(); }, [fetchReservations, fetchWaitingQueue, fetchStaff, fetchServices]);
 
   const handleCreateReservation = async (formData: Record<string, string>) => {
     try {
@@ -219,6 +227,7 @@ export default function ReservationsPage() {
       {showModal && (
         <ReservationModal
           staffList={staffList}
+          serviceList={serviceList}
           onClose={() => setShowModal(false)}
           onSubmit={handleCreateReservation}
         />
@@ -227,14 +236,16 @@ export default function ReservationsPage() {
   );
 }
 
-function ReservationModal({ staffList, onClose, onSubmit }: {
+function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
   staffList: Staff[];
+  serviceList: ServiceMenu[];
   onClose: () => void;
   onSubmit: (data: Record<string, string>) => void;
 }) {
   const [form, setForm] = useState({
     customer_name: '',
     customer_phone: '',
+    service_id: '',
     treatment_name: '',
     staff_id: '',
     date: new Date().toISOString().split('T')[0],
@@ -242,6 +253,41 @@ function ReservationModal({ staffList, onClose, onSubmit }: {
     end_time: '11:00',
     memo: '',
   });
+
+  const handleServiceChange = (id: string) => {
+    const service = serviceList.find(s => s.id === id);
+    if (!service) {
+      setForm(prev => ({ ...prev, service_id: '', treatment_name: '' }));
+      return;
+    }
+    
+    // Calculate end time
+    const [hours, minutes] = form.start_time.split(':').map(Number);
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+    const endDate = new Date(startDate.getTime() + service.duration * 60000);
+    const newEndTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+
+    setForm(prev => ({
+      ...prev,
+      service_id: id,
+      treatment_name: service.name,
+      end_time: newEndTime
+    }));
+  };
+
+  const handleStartTimeChange = (newStartTime: string) => {
+    const service = serviceList.find(s => s.id === form.service_id);
+    let newEndTime = form.end_time;
+    if (service) {
+      const [hours, minutes] = newStartTime.split(':').map(Number);
+      const startDate = new Date();
+      startDate.setHours(hours, minutes, 0, 0);
+      const endDate = new Date(startDate.getTime() + service.duration * 60000);
+      newEndTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
+    }
+    setForm(prev => ({ ...prev, start_time: newStartTime, end_time: newEndTime }));
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -259,10 +305,22 @@ function ReservationModal({ staffList, onClose, onSubmit }: {
               onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} required />
           </div>
           <div>
-            <label htmlFor="res-treatment" className="block text-sm text-dark-muted mb-1">시술명</label>
-            <input id="res-treatment" className="glass-input w-full" value={form.treatment_name}
-              onChange={(e) => setForm({ ...form, treatment_name: e.target.value })} />
+            <label htmlFor="res-treatment" className="block text-sm text-dark-muted mb-1">시술 메뉴</label>
+            <select id="res-treatment" className="glass-input w-full" value={form.service_id}
+              onChange={(e) => handleServiceChange(e.target.value)}>
+              <option value="">메뉴 선택 (또는 직접 입력)</option>
+              {serviceList.filter(s => s.is_active).map((s) => (
+                <option key={s.id} value={s.id}>{s.category} - {s.name} ({s.duration}분)</option>
+              ))}
+            </select>
           </div>
+          {!form.service_id && (
+            <div>
+              <label htmlFor="res-treatment-custom" className="block text-sm text-dark-muted mb-1">직접 입력 (시술명)</label>
+              <input id="res-treatment-custom" className="glass-input w-full" value={form.treatment_name}
+                onChange={(e) => setForm({ ...form, treatment_name: e.target.value })} placeholder="메뉴에 없는 시술인 경우 입력" />
+            </div>
+          )}
           <div>
             <label htmlFor="res-staff" className="block text-sm text-dark-muted mb-1">담당 직원</label>
             <select id="res-staff" className="glass-input w-full" value={form.staff_id}
@@ -280,7 +338,7 @@ function ReservationModal({ staffList, onClose, onSubmit }: {
             <div>
               <label htmlFor="res-start" className="block text-sm text-dark-muted mb-1">시작</label>
               <input id="res-start" type="time" className="glass-input w-full text-sm" value={form.start_time}
-                onChange={(e) => setForm({ ...form, start_time: e.target.value })} />
+                onChange={(e) => handleStartTimeChange(e.target.value)} />
             </div>
             <div>
               <label htmlFor="res-end" className="block text-sm text-dark-muted mb-1">종료</label>

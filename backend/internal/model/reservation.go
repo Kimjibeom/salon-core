@@ -13,6 +13,7 @@ type Reservation struct {
 	CustomerName    string     `json:"customer_name"`
 	CustomerPhone   string     `json:"customer_phone"`
 	StaffName       string     `json:"staff_name,omitempty"`
+	ServiceID       *string    `json:"service_id,omitempty"`
 	TreatmentName   string     `json:"treatment_name,omitempty"`
 	Date            string     `json:"date"` // YYYY-MM-DD
 	StartTime       string     `json:"start_time"` // HH:MM
@@ -32,6 +33,7 @@ type ReservationCreateRequest struct {
 	StaffID       string `json:"staff_id" binding:"omitempty,uuid"`
 	CustomerName  string `json:"customer_name" binding:"required,max=100"`
 	CustomerPhone string `json:"customer_phone" binding:"required,max=20"`
+	ServiceID     string `json:"service_id" binding:"omitempty,uuid"`
 	TreatmentName string `json:"treatment_name" binding:"max=200"`
 	Date          string `json:"date" binding:"required"` // YYYY-MM-DD
 	StartTime     string `json:"start_time" binding:"required"` // HH:MM
@@ -44,6 +46,7 @@ type ReservationCreateRequest struct {
 // ReservationUpdateRequest is the request body for updating a reservation.
 type ReservationUpdateRequest struct {
 	StaffID       *string `json:"staff_id" binding:"omitempty,uuid"`
+	ServiceID     *string `json:"service_id" binding:"omitempty,uuid"`
 	TreatmentName *string `json:"treatment_name" binding:"omitempty,max=200"`
 	Date          *string `json:"date"`
 	StartTime     *string `json:"start_time"`

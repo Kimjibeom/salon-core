@@ -22,10 +22,10 @@ func NewReservationRepository(pool *pgxpool.Pool) *ReservationRepository {
 
 // Create inserts a new reservation record.
 func (r *ReservationRepository) Create(ctx context.Context, res *model.Reservation) error {
-	query := `INSERT INTO reservations (customer_id, staff_id, customer_name, customer_phone, treatment_name, date, start_time, end_time, status, source, memo)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, created_at, updated_at`
+	query := `INSERT INTO reservations (customer_id, staff_id, service_id, customer_name, customer_phone, treatment_name, date, start_time, end_time, status, source, memo)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, created_at, updated_at`
 	return r.pool.QueryRow(ctx, query,
-		res.CustomerID, res.StaffID, res.CustomerName, res.CustomerPhone,
+		res.CustomerID, res.StaffID, res.ServiceID, res.CustomerName, res.CustomerPhone,
 		res.TreatmentName, res.Date, res.StartTime, res.EndTime,
 		res.Status, res.Source, res.Memo,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
@@ -35,12 +35,12 @@ func (r *ReservationRepository) Create(ctx context.Context, res *model.Reservati
 func (r *ReservationRepository) GetByID(ctx context.Context, id string) (*model.Reservation, error) {
 	res := &model.Reservation{}
 	query := `SELECT r.id, r.customer_id, r.staff_id, r.customer_name, r.customer_phone,
-		COALESCE(s.name, ''), r.treatment_name, r.date, r.start_time, r.end_time,
+		COALESCE(s.name, ''), r.service_id, r.treatment_name, r.date, r.start_time, r.end_time,
 		r.status, r.source, r.waiting_number, r.waiting_started_at, r.memo, r.created_at, r.updated_at
 		FROM reservations r LEFT JOIN staffs s ON r.staff_id = s.id WHERE r.id = $1`
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.CustomerID, &res.StaffID, &res.CustomerName, &res.CustomerPhone,
-		&res.StaffName, &res.TreatmentName, &res.Date, &res.StartTime, &res.EndTime,
+		&res.StaffName, &res.ServiceID, &res.TreatmentName, &res.Date, &res.StartTime, &res.EndTime,
 		&res.Status, &res.Source, &res.WaitingNumber, &res.WaitingStartedAt, &res.Memo,
 		&res.CreatedAt, &res.UpdatedAt,
 	)
@@ -53,7 +53,7 @@ func (r *ReservationRepository) GetByID(ctx context.Context, id string) (*model.
 // ListByDate fetches all reservations for a given date.
 func (r *ReservationRepository) ListByDate(ctx context.Context, date string) ([]model.Reservation, error) {
 	query := `SELECT r.id, r.customer_id, r.staff_id, r.customer_name, r.customer_phone,
-		COALESCE(s.name, ''), r.treatment_name, r.date, r.start_time, r.end_time,
+		COALESCE(s.name, ''), r.service_id, r.treatment_name, r.date, r.start_time, r.end_time,
 		r.status, r.source, r.waiting_number, r.waiting_started_at, r.memo, r.created_at, r.updated_at
 		FROM reservations r LEFT JOIN staffs s ON r.staff_id = s.id
 		WHERE r.date = $1
@@ -70,7 +70,7 @@ func (r *ReservationRepository) ListByDate(ctx context.Context, date string) ([]
 // ListByDateRange fetches reservations within a date range.
 func (r *ReservationRepository) ListByDateRange(ctx context.Context, startDate, endDate string) ([]model.Reservation, error) {
 	query := `SELECT r.id, r.customer_id, r.staff_id, r.customer_name, r.customer_phone,
-		COALESCE(s.name, ''), r.treatment_name, r.date, r.start_time, r.end_time,
+		COALESCE(s.name, ''), r.service_id, r.treatment_name, r.date, r.start_time, r.end_time,
 		r.status, r.source, r.waiting_number, r.waiting_started_at, r.memo, r.created_at, r.updated_at
 		FROM reservations r LEFT JOIN staffs s ON r.staff_id = s.id
 		WHERE r.date BETWEEN $1 AND $2
@@ -88,7 +88,7 @@ func (r *ReservationRepository) ListByDateRange(ctx context.Context, startDate, 
 func (r *ReservationRepository) GetWaitingQueue(ctx context.Context) ([]model.WaitingQueueEntry, error) {
 	today := time.Now().Format("2006-01-02")
 	query := `SELECT r.id, r.customer_id, r.staff_id, r.customer_name, r.customer_phone,
-		COALESCE(s.name, ''), r.treatment_name, r.date, r.start_time, r.end_time,
+		COALESCE(s.name, ''), r.service_id, r.treatment_name, r.date, r.start_time, r.end_time,
 		r.status, r.source, r.waiting_number, r.waiting_started_at, r.memo, r.created_at, r.updated_at
 		FROM reservations r LEFT JOIN staffs s ON r.staff_id = s.id
 		WHERE r.date = $1 AND r.status = 'waiting'
@@ -105,7 +105,7 @@ func (r *ReservationRepository) GetWaitingQueue(ctx context.Context) ([]model.Wa
 		var res model.Reservation
 		if err := rows.Scan(
 			&res.ID, &res.CustomerID, &res.StaffID, &res.CustomerName, &res.CustomerPhone,
-			&res.StaffName, &res.TreatmentName, &res.Date, &res.StartTime, &res.EndTime,
+			&res.StaffName, &res.ServiceID, &res.TreatmentName, &res.Date, &res.StartTime, &res.EndTime,
 			&res.Status, &res.Source, &res.WaitingNumber, &res.WaitingStartedAt, &res.Memo,
 			&res.CreatedAt, &res.UpdatedAt,
 		); err != nil {
@@ -150,10 +150,10 @@ func (r *ReservationRepository) AddToWaitingQueue(ctx context.Context, res *mode
 	res.WaitingStartedAt = &now
 	res.WaitingNumber = &nextNum
 
-	query := `INSERT INTO reservations (customer_id, staff_id, customer_name, customer_phone, treatment_name, date, start_time, end_time, status, source, waiting_number, waiting_started_at, memo)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, created_at, updated_at`
+	query := `INSERT INTO reservations (customer_id, staff_id, service_id, customer_name, customer_phone, treatment_name, date, start_time, end_time, status, source, waiting_number, waiting_started_at, memo)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, created_at, updated_at`
 	return r.pool.QueryRow(ctx, query,
-		res.CustomerID, res.StaffID, res.CustomerName, res.CustomerPhone,
+		res.CustomerID, res.StaffID, res.ServiceID, res.CustomerName, res.CustomerPhone,
 		res.TreatmentName, res.Date, res.StartTime, res.EndTime,
 		res.Status, res.Source, res.WaitingNumber, res.WaitingStartedAt, res.Memo,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
@@ -176,6 +176,11 @@ func (r *ReservationRepository) Update(ctx context.Context, id string, req *mode
 	if req.StaffID != nil {
 		setClauses = append(setClauses, fmt.Sprintf("staff_id = $%d", argIdx))
 		args = append(args, *req.StaffID)
+		argIdx++
+	}
+	if req.ServiceID != nil {
+		setClauses = append(setClauses, fmt.Sprintf("service_id = $%d", argIdx))
+		args = append(args, *req.ServiceID)
 		argIdx++
 	}
 	if req.TreatmentName != nil {
@@ -253,7 +258,7 @@ func scanReservations(rows pgxRows) ([]model.Reservation, error) {
 		var res model.Reservation
 		if err := rows.Scan(
 			&res.ID, &res.CustomerID, &res.StaffID, &res.CustomerName, &res.CustomerPhone,
-			&res.StaffName, &res.TreatmentName, &res.Date, &res.StartTime, &res.EndTime,
+			&res.StaffName, &res.ServiceID, &res.TreatmentName, &res.Date, &res.StartTime, &res.EndTime,
 			&res.Status, &res.Source, &res.WaitingNumber, &res.WaitingStartedAt, &res.Memo,
 			&res.CreatedAt, &res.UpdatedAt,
 		); err != nil {

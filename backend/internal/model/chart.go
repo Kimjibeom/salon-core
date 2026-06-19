@@ -11,6 +11,7 @@ type Chart struct {
 	CustomerID        string    `json:"customer_id"`
 	StaffID           string    `json:"staff_id"`
 	StaffName         string    `json:"staff_name,omitempty"`
+	ServiceID         *string   `json:"service_id,omitempty"`
 	Recipe            string    `json:"recipe"`
 	TreatmentName     string    `json:"treatment_name,omitempty"`
 	TreatmentDuration int       `json:"treatment_duration,omitempty"` // minutes
@@ -25,6 +26,7 @@ type Chart struct {
 type ChartCreateRequest struct {
 	CustomerID        string `json:"customer_id" binding:"required,uuid"`
 	StaffID           string `json:"staff_id" binding:"required,uuid"`
+	ServiceID         string `json:"service_id" binding:"omitempty,uuid"`
 	Recipe            string `json:"recipe" binding:"max=5000"`
 	TreatmentName     string `json:"treatment_name" binding:"max=200"`
 	TreatmentDuration int    `json:"treatment_duration" binding:"gte=0"`

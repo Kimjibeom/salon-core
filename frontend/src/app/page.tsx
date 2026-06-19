@@ -13,9 +13,10 @@ import CustomersPage from '@/components/customers/CustomersPage';
 import POSPage from '@/components/pos/POSPage';
 import AnalyticsPage from '@/components/analytics/AnalyticsPage';
 import StaffPage from '@/components/staff/StaffPage';
+import ServiceMenuPage from '@/components/settings/ServiceMenuPage';
 import NotificationPopup from '@/components/ui/NotificationPopup';
 
-type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff';
+type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff' | 'services';
 
 export default function Home() {
   const { staff, isLoading } = useAuth();
@@ -54,6 +55,7 @@ export default function Home() {
       case 'pos': return <POSPage />;
       case 'analytics': return <AnalyticsPage />;
       case 'staff': return <StaffPage />;
+      case 'services': return <ServiceMenuPage />;
     }
   };
 
