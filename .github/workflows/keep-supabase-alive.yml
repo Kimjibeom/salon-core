@@ -1,0 +1,66 @@
+name: Keep Supabase Alive
+
+# ============================================
+# Salon Core CRM - Supabase Auto-Ping
+# Free 플랜의 7일 비활성화 자동 pause를 방지
+# Project: pxuqtgwpazzoomwwzvvj
+# ============================================
+
+on:
+  schedule:
+    # 매일 오전 9시 (KST) = UTC 00:00 에 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  ping-supabase:
+    name: Ping Supabase REST API
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping Supabase REST endpoint
+        id: ping
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 30)
+
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "status=$HTTP_STATUS" >> $GITHUB_OUTPUT
+
+          # 200/401/404 = 서버 살아있음 (401은 anon key 미인증, 정상)
+          if [ "$HTTP_STATUS" = "200" ] || [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "404" ]; then
+            echo "✅ Supabase is ALIVE (status: $HTTP_STATUS)"
+          else
+            echo "❌ Supabase may be PAUSED or unreachable (status: $HTTP_STATUS)"
+            exit 1
+          fi
+
+      - name: Ping Supabase Auth endpoint (보조)
+        if: always()
+        run: |
+          AUTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/auth/v1/health" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 30)
+
+          echo "Auth Health Status: $AUTH_STATUS"
+          if [ "$AUTH_STATUS" = "200" ]; then
+            echo "✅ Auth service is HEALTHY"
+          else
+            echo "⚠️  Auth service returned: $AUTH_STATUS"
+          fi
+
+      - name: Report Status
+        if: always()
+        run: |
+          echo "================================================"
+          echo " Salon Core CRM - Supabase Ping Report"
+          echo " Project : pxuqtgwpazzoomwwzvvj"
+          echo " UTC Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo " KST Time: $(TZ='Asia/Seoul' date '+%Y-%m-%d %H:%M:%S KST')"
+          echo " REST API: ${{ steps.ping.outputs.status }}"
+          echo "================================================"
