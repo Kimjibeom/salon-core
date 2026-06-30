@@ -49,6 +49,7 @@ func main() {
 	reservationRepo := repository.NewReservationRepository(pool)
 	saleRepo := repository.NewSaleRepository(pool)
 	serviceRepo := repository.NewServiceMenuRepository(pool)
+	settingRepo := repository.NewSettingRepository(pool)
 
 	// Initialize WebSocket hub
 	hub := websocket.NewHub()
@@ -65,6 +66,7 @@ func main() {
 	serviceService := service.NewServiceMenuService(serviceRepo)
 	analyticsService := service.NewAnalyticsService(saleRepo)
 	marketingService := service.NewMarketingService(saleRepo)
+	settingService := service.NewSettingService(settingRepo)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -78,6 +80,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	marketingHandler := handler.NewMarketingHandler(marketingService)
 	naverSyncHandler := handler.NewNaverSyncHandler()
+	settingHandler := handler.NewSettingHandler(settingService)
 
 	// Initialize cron scheduler
 	cronScheduler := scheduler.NewScheduler(pool, customerRepo, membershipRepo)
@@ -225,6 +228,14 @@ func main() {
 			sync := protected.Group("/sync")
 			{
 				sync.POST("/naver/manual", middleware.RequireRole("admin"), naverSyncHandler.TriggerManualSync)
+			}
+
+			// Settings (admin only)
+			settings := protected.Group("/settings")
+			settings.Use(middleware.RequireRole("admin"))
+			{
+				settings.GET("", settingHandler.GetSettings)
+				settings.PUT("", settingHandler.UpdateSettingsBatch)
 			}
 		}
 	}

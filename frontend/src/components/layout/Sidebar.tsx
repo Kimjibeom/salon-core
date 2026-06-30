@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/hooks/useAuth';
 
-type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff' | 'services';
+type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff' | 'services' | 'integration';
 
 const tabs: { key: TabKey; label: string; icon: string; roles?: string[] }[] = [
   { key: 'reservations', label: '예약 관리', icon: '📅' },
@@ -12,6 +12,7 @@ const tabs: { key: TabKey; label: string; icon: string; roles?: string[] }[] = [
   { key: 'analytics', label: '매출 분석', icon: '📊', roles: ['admin', 'designer'] },
   { key: 'staff', label: '직원 관리', icon: '👥', roles: ['admin'] },
   { key: 'services', label: '메뉴 관리', icon: '📋', roles: ['admin'] },
+  { key: 'integration', label: '연동 설정', icon: '⚙️', roles: ['admin'] },
 ];
 
 interface SidebarProps {

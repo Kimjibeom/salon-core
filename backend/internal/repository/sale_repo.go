@@ -272,12 +272,11 @@ func (r *SaleRepository) GetStaffPerformance(ctx context.Context, startDate, end
 		COALESCE(SUM(s.total_amount), 0) as total_rev,
 		st.service_incentive_rate, st.product_incentive_rate,
 		COALESCE(SUM(CASE WHEN s.category = 'service' THEN s.card_amount * s.card_commission_rate / 100 ELSE 0 END), 0) as service_commission,
-		COALESCE(SUM(CASE WHEN s.category = 'product' THEN s.card_amount * s.card_commission_rate / 100 ELSE 0 END), 0) as product_commission,
-		st.base_salary
+		COALESCE(SUM(CASE WHEN s.category = 'product' THEN s.card_amount * s.card_commission_rate / 100 ELSE 0 END), 0) as product_commission
 		FROM staffs st
 		LEFT JOIN sales s ON st.id = s.staff_id AND s.created_at::date BETWEEN $1 AND $2
 		WHERE st.is_active = true
-		GROUP BY st.id, st.name, st.monthly_target, st.service_incentive_rate, st.product_incentive_rate, st.base_salary
+		GROUP BY st.id, st.name, st.monthly_target, st.service_incentive_rate, st.product_incentive_rate
 		ORDER BY total_rev DESC`
 	rows, err := r.pool.Query(ctx, query, startDate, endDate)
 	if err != nil {
@@ -293,7 +292,6 @@ func (r *SaleRepository) GetStaffPerformance(ctx context.Context, startDate, end
 			&sp.StaffID, &sp.StaffName, &sp.MonthlyTarget,
 			&sp.ServiceRevenue, &sp.ProductRevenue, &sp.TotalRevenue,
 			&serviceRate, &productRate, &serviceCommission, &productCommission,
-			&sp.BaseSalary,
 		); err != nil {
 			return nil, err
 		}
@@ -313,7 +311,7 @@ func (r *SaleRepository) GetStaffPerformance(ctx context.Context, startDate, end
 		}
 
 		// Total payroll
-		sp.TotalPayroll = sp.BaseSalary + sp.TotalIncentive
+		sp.TotalPayroll = sp.TotalIncentive
 
 		performances = append(performances, sp)
 	}

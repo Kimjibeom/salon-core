@@ -15,7 +15,6 @@ type Staff struct {
 	Phone                string    `json:"phone,omitempty"`
 	ServiceIncentiveRate float64   `json:"service_incentive_rate"`
 	ProductIncentiveRate float64   `json:"product_incentive_rate"`
-	BaseSalary           float64   `json:"base_salary"`
 	MonthlyTarget        float64   `json:"monthly_target"`
 	IsActive             bool      `json:"is_active"`
 	CreatedAt            time.Time `json:"created_at"`
@@ -31,7 +30,6 @@ type StaffCreateRequest struct {
 	Phone                string  `json:"phone" binding:"max=20"`
 	ServiceIncentiveRate float64 `json:"service_incentive_rate" binding:"gte=0,lte=100"`
 	ProductIncentiveRate float64 `json:"product_incentive_rate" binding:"gte=0,lte=100"`
-	BaseSalary           float64 `json:"base_salary" binding:"gte=0"`
 	MonthlyTarget        float64 `json:"monthly_target" binding:"gte=0"`
 }
 
@@ -42,7 +40,6 @@ type StaffUpdateRequest struct {
 	Phone                *string  `json:"phone" binding:"omitempty,max=20"`
 	ServiceIncentiveRate *float64 `json:"service_incentive_rate" binding:"omitempty,gte=0,lte=100"`
 	ProductIncentiveRate *float64 `json:"product_incentive_rate" binding:"omitempty,gte=0,lte=100"`
-	BaseSalary           *float64 `json:"base_salary" binding:"omitempty,gte=0"`
 	MonthlyTarget        *float64 `json:"monthly_target" binding:"omitempty,gte=0"`
 	IsActive             *bool    `json:"is_active"`
 }
@@ -67,6 +64,5 @@ type StaffPerformance struct {
 	TotalIncentive    float64 `json:"total_incentive"`
 	NetServiceRevenue float64 `json:"net_service_revenue"`
 	NetProductRevenue float64 `json:"net_product_revenue"`
-	BaseSalary        float64 `json:"base_salary"`
 	TotalPayroll      float64 `json:"total_payroll"`
 }

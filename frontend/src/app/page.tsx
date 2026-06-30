@@ -14,11 +14,12 @@ import POSPage from '@/components/pos/POSPage';
 import AnalyticsPage from '@/components/analytics/AnalyticsPage';
 import StaffPage from '@/components/staff/StaffPage';
 import ServiceMenuPage from '@/components/settings/ServiceMenuPage';
+import IntegrationSettingsPage from '@/components/settings/IntegrationSettingsPage';
 import NotificationPopup from '@/components/ui/NotificationPopup';
 
-type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff' | 'services';
+type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff' | 'services' | 'integration';
 
-const VALID_TABS: TabKey[] = ['reservations', 'customers', 'pos', 'analytics', 'staff', 'services'];
+const VALID_TABS: TabKey[] = ['reservations', 'customers', 'pos', 'analytics', 'staff', 'services', 'integration'];
 
 function getTabFromHash(): TabKey {
   if (typeof window === 'undefined') return 'reservations';
@@ -77,6 +78,7 @@ export default function Home() {
       case 'analytics': return <AnalyticsPage />;
       case 'staff': return <StaffPage />;
       case 'services': return <ServiceMenuPage />;
+      case 'integration': return <IntegrationSettingsPage />;
     }
   };
 

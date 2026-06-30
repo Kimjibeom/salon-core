@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { formatTime, getStatusColor, getStatusLabel, getSourceLabel } from '@/lib/utils';
-import type { Reservation, WaitingQueueEntry, Staff, ServiceMenu } from '@/types';
+import type { Reservation, WaitingQueueEntry, Staff, ServiceMenu, Customer } from '@/types';
 import SaleEntryModal from '../pos/SaleEntryModal';
 
 type ViewMode = 'day' | 'week' | 'month';
@@ -16,7 +16,9 @@ export default function ReservationsPage() {
   const [waitingQueue, setWaitingQueue] = useState<WaitingQueueEntry[]>([]);
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [serviceList, setServiceList] = useState<ServiceMenu[]>([]);
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [showWalkinModal, setShowWalkinModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedReservationForSale, setSelectedReservationForSale] = useState<Reservation | null>(null);
 
@@ -50,7 +52,14 @@ export default function ReservationsPage() {
     } catch { setServiceList([]); }
   }, []);
 
-  useEffect(() => { fetchReservations(); fetchWaitingQueue(); fetchStaff(); fetchServices(); }, [fetchReservations, fetchWaitingQueue, fetchStaff, fetchServices]);
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const data = await api.get<Customer[]>('/api/customers');
+      setCustomerList(data || []);
+    } catch { setCustomerList([]); }
+  }, []);
+
+  useEffect(() => { fetchReservations(); fetchWaitingQueue(); fetchStaff(); fetchServices(); fetchCustomers(); }, [fetchReservations, fetchWaitingQueue, fetchStaff, fetchServices, fetchCustomers]);
 
   const handleCreateReservation = async (formData: Record<string, string>) => {
     try {
@@ -93,8 +102,11 @@ export default function ReservationsPage() {
         ...formData,
         source: 'offline',
       });
+      setShowWalkinModal(false);
       fetchWaitingQueue();
-    } catch { /* error handled */ }
+    } catch (err: any) {
+      alert(err.message || '워크인 등록에 실패했습니다.');
+    }
   };
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 9); // 9:00 ~ 22:00
@@ -231,10 +243,7 @@ export default function ReservationsPage() {
           </div>
 
           <button id="add-walkin-btn"
-            onClick={() => {
-              const name = 'Walk-in';
-              handleAddWalkin({ customer_name: name, customer_phone: '', start_time: '00:00', end_time: '00:00' });
-            }}
+            onClick={() => setShowWalkinModal(true)}
             className="btn-secondary w-full mt-4 text-sm">
             + 워크인 고객 추가
           </button>
@@ -246,8 +255,21 @@ export default function ReservationsPage() {
         <ReservationModal
           staffList={staffList}
           serviceList={serviceList}
+          customerList={customerList}
           onClose={() => setShowModal(false)}
           onSubmit={handleCreateReservation}
+          fetchCustomers={fetchCustomers}
+        />
+      )}
+
+      {/* Walkin Modal */}
+      {showWalkinModal && (
+        <WalkinModal
+          serviceList={serviceList}
+          customerList={customerList}
+          onClose={() => setShowWalkinModal(false)}
+          onSubmit={handleAddWalkin}
+          fetchCustomers={fetchCustomers}
         />
       )}
 
@@ -270,13 +292,17 @@ export default function ReservationsPage() {
   );
 }
 
-function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
+function ReservationModal({ staffList, serviceList, customerList, onClose, onSubmit, fetchCustomers }: {
   staffList: Staff[];
   serviceList: ServiceMenu[];
+  customerList: Customer[];
   onClose: () => void;
   onSubmit: (data: Record<string, string>) => void;
+  fetchCustomers: () => Promise<void>;
 }) {
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
   const [form, setForm] = useState({
+    customer_id: '',
     customer_name: '',
     customer_phone: '',
     service_id: '',
@@ -290,11 +316,34 @@ function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
 
   const [error, setError] = useState('');
 
+  const handleCustomerSelect = (id: string) => {
+    const cust = customerList.find(c => c.id === id);
+    if (cust) {
+      setForm(prev => ({ ...prev, customer_id: id, customer_name: cust.name, customer_phone: cust.phone || '' }));
+    } else {
+      setForm(prev => ({ ...prev, customer_id: '', customer_name: '', customer_phone: '' }));
+    }
+  };
+
   const handleSubmit = async () => {
     setError('');
     try {
-      if (!form.customer_name) throw new Error('고객명을 입력해주세요.');
-      if (!form.customer_phone) throw new Error('연락처를 입력해주세요.');
+      if (isNewCustomer) {
+        if (!form.customer_name) throw new Error('고객명을 입력해주세요.');
+        if (!form.customer_phone) throw new Error('연락처를 입력해주세요.');
+        // Create customer first
+        const custRes = await api.post<{id: string}>('/api/customers', {
+          name: form.customer_name,
+          phone: form.customer_phone,
+        });
+        if (custRes && custRes.id) {
+          form.customer_id = custRes.id;
+          await fetchCustomers();
+        }
+      } else {
+        if (!form.customer_id) throw new Error('고객을 선택해주세요.');
+      }
+      
       if (!form.date || !form.start_time || !form.end_time) throw new Error('날짜와 시간을 확인해주세요.');
       
       await onSubmit(form);
@@ -349,17 +398,44 @@ function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
           </div>
         )}
 
+        <div className="flex gap-4 mb-4">
+          <label className="flex items-center gap-2 cursor-pointer text-white">
+            <input type="radio" name="customer_type" checked={!isNewCustomer} onChange={() => setIsNewCustomer(false)} />
+            기존 고객
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer text-white">
+            <input type="radio" name="customer_type" checked={isNewCustomer} onChange={() => setIsNewCustomer(true)} />
+            신규 고객
+          </label>
+        </div>
+
         <div className="space-y-4">
-          <div>
-            <label htmlFor="res-customer-name" className="block text-sm text-dark-muted mb-1">고객명 *</label>
-            <input id="res-customer-name" className="glass-input w-full" value={form.customer_name}
-              onChange={(e) => setForm({ ...form, customer_name: e.target.value })} required />
-          </div>
-          <div>
-            <label htmlFor="res-customer-phone" className="block text-sm text-dark-muted mb-1">연락처 *</label>
-            <input id="res-customer-phone" className="glass-input w-full" value={form.customer_phone}
-              onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} required />
-          </div>
+          {!isNewCustomer ? (
+            <div>
+              <label htmlFor="res-customer-select" className="block text-sm text-dark-muted mb-1">고객 선택 *</label>
+              <select id="res-customer-select" className="glass-input w-full" value={form.customer_id}
+                onChange={(e) => handleCustomerSelect(e.target.value)}>
+                <option value="">고객을 선택하세요</option>
+                {customerList.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label htmlFor="res-customer-name" className="block text-sm text-dark-muted mb-1">고객명 *</label>
+                <input id="res-customer-name" className="glass-input w-full" value={form.customer_name}
+                  onChange={(e) => setForm({ ...form, customer_name: e.target.value })} required />
+              </div>
+              <div>
+                <label htmlFor="res-customer-phone" className="block text-sm text-dark-muted mb-1">연락처 *</label>
+                <input id="res-customer-phone" className="glass-input w-full" value={form.customer_phone}
+                  onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} required />
+              </div>
+            </>
+          )}
+
           <div>
             <label htmlFor="res-treatment" className="block text-sm text-dark-muted mb-1">시술 메뉴</label>
             <select id="res-treatment" className="glass-input w-full" value={form.service_id}
@@ -411,6 +487,153 @@ function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="btn-secondary flex-1">취소</button>
           <button id="res-submit" onClick={handleSubmit} className="btn-primary flex-1">예약 등록</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WalkinModal({ serviceList, customerList, onClose, onSubmit, fetchCustomers }: {
+  serviceList: ServiceMenu[];
+  customerList: Customer[];
+  onClose: () => void;
+  onSubmit: (data: Record<string, string>) => void;
+  fetchCustomers: () => Promise<void>;
+}) {
+  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [form, setForm] = useState({
+    customer_id: '',
+    customer_name: '',
+    customer_phone: '',
+    service_id: '',
+    treatment_name: '',
+    start_time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+    end_time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+  });
+
+  const [error, setError] = useState('');
+
+  const handleCustomerSelect = (id: string) => {
+    const cust = customerList.find(c => c.id === id);
+    if (cust) {
+      setForm(prev => ({ ...prev, customer_id: id, customer_name: cust.name, customer_phone: cust.phone || '' }));
+    } else {
+      setForm(prev => ({ ...prev, customer_id: '', customer_name: '', customer_phone: '' }));
+    }
+  };
+
+  const handleServiceChange = (id: string) => {
+    const service = serviceList.find(s => s.id === id);
+    setForm(prev => ({
+      ...prev,
+      service_id: id,
+      treatment_name: service ? service.name : ''
+    }));
+  };
+
+  const handleSubmit = async () => {
+    setError('');
+    try {
+      if (isNewCustomer) {
+        if (!form.customer_name) throw new Error('고객명을 입력해주세요.');
+        const custRes = await api.post<{id: string}>('/api/customers', {
+          name: form.customer_name,
+          phone: form.customer_phone,
+        });
+        if (custRes && custRes.id) {
+          form.customer_id = custRes.id;
+          await fetchCustomers();
+        }
+      } else {
+        if (!form.customer_id && !form.customer_name) {
+          // Allow anonymous walkin if name is given
+          if (!form.customer_name) throw new Error('고객을 선택하거나 이름을 입력해주세요.');
+        }
+      }
+      
+      await onSubmit(form);
+    } catch (err: any) {
+      setError(err.message || '워크인 등록에 실패했습니다.');
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-xl font-bold text-white mb-6">🚶 워크인 대기열 추가</h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
+        <div className="flex gap-4 mb-4">
+          <label className="flex items-center gap-2 cursor-pointer text-white">
+            <input type="radio" name="walkin_customer_type" checked={!isNewCustomer} onChange={() => setIsNewCustomer(false)} />
+            기존 고객
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer text-white">
+            <input type="radio" name="walkin_customer_type" checked={isNewCustomer} onChange={() => setIsNewCustomer(true)} />
+            신규 고객
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          {!isNewCustomer ? (
+            <div>
+              <label htmlFor="walkin-customer-select" className="block text-sm text-dark-muted mb-1">고객 선택</label>
+              <select id="walkin-customer-select" className="glass-input w-full" value={form.customer_id}
+                onChange={(e) => handleCustomerSelect(e.target.value)}>
+                <option value="">익명 (비회원)</option>
+                {customerList.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                ))}
+              </select>
+              {!form.customer_id && (
+                <div className="mt-2">
+                  <label htmlFor="walkin-anon-name" className="block text-sm text-dark-muted mb-1">비회원 이름</label>
+                  <input id="walkin-anon-name" className="glass-input w-full" value={form.customer_name}
+                    onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="Walk-in" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div>
+                <label htmlFor="walkin-customer-name" className="block text-sm text-dark-muted mb-1">고객명 *</label>
+                <input id="walkin-customer-name" className="glass-input w-full" value={form.customer_name}
+                  onChange={(e) => setForm({ ...form, customer_name: e.target.value })} required />
+              </div>
+              <div>
+                <label htmlFor="walkin-customer-phone" className="block text-sm text-dark-muted mb-1">연락처</label>
+                <input id="walkin-customer-phone" className="glass-input w-full" value={form.customer_phone}
+                  onChange={(e) => setForm({ ...form, customer_phone: e.target.value })} />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label htmlFor="walkin-treatment" className="block text-sm text-dark-muted mb-1">시술 메뉴</label>
+            <select id="walkin-treatment" className="glass-input w-full" value={form.service_id}
+              onChange={(e) => handleServiceChange(e.target.value)}>
+              <option value="">선택 안함</option>
+              {serviceList.filter(s => s.is_active).map((s) => (
+                <option key={s.id} value={s.id}>{s.category} - {s.name}</option>
+              ))}
+            </select>
+          </div>
+          {!form.service_id && (
+            <div>
+              <label htmlFor="walkin-treatment-custom" className="block text-sm text-dark-muted mb-1">직접 입력 (시술명)</label>
+              <input id="walkin-treatment-custom" className="glass-input w-full" value={form.treatment_name}
+                onChange={(e) => setForm({ ...form, treatment_name: e.target.value })} placeholder="예: 커트, 펌" />
+            </div>
+          )}
+        </div>
+        <div className="flex gap-3 mt-6">
+          <button onClick={onClose} className="btn-secondary flex-1">취소</button>
+          <button onClick={handleSubmit} className="btn-primary flex-1">대기열 추가</button>
         </div>
       </div>
     </div>

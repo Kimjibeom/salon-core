@@ -8,7 +8,6 @@ export interface Staff {
   phone?: string;
   service_incentive_rate: number;
   product_incentive_rate: number;
-  base_salary: number;
   monthly_target: number;
   is_active: boolean;
   created_at: string;
@@ -192,7 +191,6 @@ export interface StaffPerformance {
   total_incentive: number;
   net_service_revenue: number;
   net_product_revenue: number;
-  base_salary: number;
   total_payroll: number;
 }
 

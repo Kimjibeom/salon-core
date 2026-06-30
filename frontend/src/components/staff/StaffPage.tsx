@@ -37,7 +37,6 @@ export default function StaffPage() {
         ...form,
         service_incentive_rate: parseFloat(form.service_incentive_rate) || 0,
         product_incentive_rate: parseFloat(form.product_incentive_rate) || 0,
-        base_salary: parseFloat(form.base_salary) || 0,
         monthly_target: parseFloat(form.monthly_target) || 0,
       });
       setShowCreateModal(false);
@@ -123,13 +122,12 @@ export default function StaffPage() {
                 <th className="table-header text-right">순매출 (점판)</th>
                 <th className="table-header text-right">시술 인센티브</th>
                 <th className="table-header text-right">점판 인센티브</th>
-                <th className="table-header text-right">기본급</th>
                 <th className="table-header text-right font-bold">총 급여</th>
               </tr>
             </thead>
             <tbody>
               {performance.length === 0 ? (
-                <tr><td colSpan={8} className="table-cell text-center text-dark-muted py-8">데이터가 없습니다</td></tr>
+                <tr><td colSpan={7} className="table-cell text-center text-dark-muted py-8">데이터가 없습니다</td></tr>
               ) : performance.map((p) => (
                 <tr key={p.staff_id} className="table-row">
                   <td className="table-cell font-medium text-white">
@@ -145,7 +143,6 @@ export default function StaffPage() {
                   <td className="table-cell text-right text-blue-400">{formatCurrency(p.net_product_revenue)}</td>
                   <td className="table-cell text-right">{formatCurrency(p.service_incentive)}</td>
                   <td className="table-cell text-right">{formatCurrency(p.product_incentive)}</td>
-                  <td className="table-cell text-right text-dark-muted">{formatCurrency(p.base_salary)}</td>
                   <td className="table-cell text-right font-bold text-salon-400">{formatCurrency(p.total_payroll)}</td>
                 </tr>
               ))}
@@ -159,7 +156,6 @@ export default function StaffPage() {
                   <td className="table-cell text-right font-bold text-blue-400">{formatCurrency(performance.reduce((s, p) => s + p.net_product_revenue, 0))}</td>
                   <td className="table-cell text-right font-bold">{formatCurrency(performance.reduce((s, p) => s + p.service_incentive, 0))}</td>
                   <td className="table-cell text-right font-bold">{formatCurrency(performance.reduce((s, p) => s + p.product_incentive, 0))}</td>
-                  <td className="table-cell text-right font-bold">{formatCurrency(performance.reduce((s, p) => s + p.base_salary, 0))}</td>
                   <td className="table-cell text-right font-bold text-salon-400">{formatCurrency(performance.reduce((s, p) => s + p.total_payroll, 0))}</td>
                 </tr>
               </tfoot>
@@ -181,7 +177,6 @@ export default function StaffPage() {
                 <th className="table-header text-left">직급</th>
                 <th className="table-header text-right">시술 수수료율</th>
                 <th className="table-header text-right">점판 수수료율</th>
-                <th className="table-header text-right">기본급</th>
                 <th className="table-header text-right">월 목표</th>
                 <th className="table-header text-center">관리</th>
               </tr>
@@ -197,7 +192,6 @@ export default function StaffPage() {
                   </td>
                   <td className="table-cell text-right">{s.service_incentive_rate}%</td>
                   <td className="table-cell text-right">{s.product_incentive_rate}%</td>
-                  <td className="table-cell text-right">{formatCurrency(s.base_salary)}</td>
                   <td className="table-cell text-right">{formatCurrency(s.monthly_target)}</td>
                   <td className="table-cell text-center">
                     <button
@@ -226,7 +220,7 @@ function CreateStaffModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'designer',
     phone: '', service_incentive_rate: '30', product_incentive_rate: '10',
-    base_salary: '2000000', monthly_target: '5000000',
+    monthly_target: '5000000',
   });
 
   return (
@@ -279,17 +273,10 @@ function CreateStaffModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
                 onChange={(e) => setForm({ ...form, product_incentive_rate: e.target.value })} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="staff-salary" className="block text-sm text-dark-muted mb-1">기본급 (원)</label>
-              <input id="staff-salary" type="number" className="glass-input w-full" value={form.base_salary}
-                onChange={(e) => setForm({ ...form, base_salary: e.target.value })} />
-            </div>
-            <div>
-              <label htmlFor="staff-target" className="block text-sm text-dark-muted mb-1">월 목표 (원)</label>
-              <input id="staff-target" type="number" className="glass-input w-full" value={form.monthly_target}
-                onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} />
-            </div>
+          <div>
+            <label htmlFor="staff-target" className="block text-sm text-dark-muted mb-1">월 목표 (원)</label>
+            <input id="staff-target" type="number" className="glass-input w-full" value={form.monthly_target}
+              onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} />
           </div>
         </div>
         <div className="flex gap-3 mt-6">
