@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"github.com/Kimjibeom/salon-core/backend/internal/model"
 	"github.com/Kimjibeom/salon-core/backend/internal/service"
+	"github.com/gin-gonic/gin"
 )
 
 type SettingHandler struct {
@@ -15,46 +15,43 @@ func NewSettingHandler(svc *service.SettingService) *SettingHandler {
 	return &SettingHandler{svc: svc}
 }
 
-func (h *SettingHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
-	settings, err := h.svc.GetAllSettings(r.Context())
+func (h *SettingHandler) GetSettings(c *gin.Context) {
+	settings, err := h.svc.GetAllSettings(c.Request.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(settings)
+	c.JSON(http.StatusOK, settings)
 }
 
-func (h *SettingHandler) UpdateSetting(w http.ResponseWriter, r *http.Request) {
+func (h *SettingHandler) UpdateSetting(c *gin.Context) {
 	var s model.Setting
-	if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&s); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
-	if err := h.svc.UpdateSetting(r.Context(), &s); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := h.svc.UpdateSetting(c.Request.Context(), &s); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s)
+	c.JSON(http.StatusOK, s)
 }
 
-func (h *SettingHandler) UpdateSettingsBatch(w http.ResponseWriter, r *http.Request) {
+func (h *SettingHandler) UpdateSettingsBatch(c *gin.Context) {
 	var settings []model.Setting
-	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+	if err := c.ShouldBindJSON(&settings); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
 
 	for _, s := range settings {
-		if err := h.svc.UpdateSetting(r.Context(), &s); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		if err := h.svc.UpdateSetting(c.Request.Context(), &s); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(settings)
+	c.JSON(http.StatusOK, settings)
 }
