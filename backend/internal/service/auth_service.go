@@ -62,7 +62,6 @@ func (s *AuthService) Register(ctx context.Context, req *model.StaffCreateReques
 		Phone:                req.Phone,
 		ServiceIncentiveRate: req.ServiceIncentiveRate,
 		ProductIncentiveRate: req.ProductIncentiveRate,
-		BaseSalary:           req.BaseSalary,
 		MonthlyTarget:        req.MonthlyTarget,
 		IsActive:             true,
 	}
