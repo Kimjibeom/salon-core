@@ -267,6 +267,7 @@ function ChartEntry({ chart }: { chart: Chart }) {
 
 function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMenu[]; onSubmit: (form: Record<string, string>) => void; onCancel: () => void }) {
   const [form, setForm] = useState({ staff_id: '', service_id: '', recipe: '', treatment_name: '', notes: '' });
+  const [error, setError] = useState('');
 
   const handleServiceChange = (id: string) => {
     const service = serviceList.find(s => s.id === id);
@@ -277,8 +278,23 @@ function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMe
     }
   };
 
+  const handleSubmit = async () => {
+    setError('');
+    try {
+      if (!form.service_id && !form.treatment_name) throw new Error('시술 메뉴를 선택하거나 시술명을 입력해주세요.');
+      await onSubmit(form);
+    } catch (err: any) {
+      setError(err.message || '시술 기록 저장에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="glass-card p-4 mb-4 border-salon-500/30">
+      {error && (
+        <div className="mb-3 p-2 bg-red-500/20 border border-red-500/50 rounded-lg">
+          <p className="text-xs text-red-400">{error}</p>
+        </div>
+      )}
       <div className="space-y-3">
         <select className="glass-input w-full text-sm" value={form.service_id}
           onChange={(e) => handleServiceChange(e.target.value)}>
@@ -297,7 +313,7 @@ function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMe
           onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         <div className="flex gap-2">
           <button onClick={onCancel} className="btn-secondary text-xs flex-1">취소</button>
-          <button id="chart-submit" onClick={() => onSubmit(form)} className="btn-primary text-xs flex-1">저장</button>
+          <button id="chart-submit" onClick={handleSubmit} className="btn-primary text-xs flex-1">저장</button>
         </div>
       </div>
     </div>
@@ -306,10 +322,28 @@ function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMe
 
 function CreateCustomerModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (data: Record<string, string>) => void }) {
   const [form, setForm] = useState({ name: '', phone: '', email: '', birth_date: '', memo: '' });
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setError('');
+    try {
+      if (!form.name) throw new Error('이름을 입력해주세요.');
+      if (!form.phone) throw new Error('전화번호를 입력해주세요.');
+      await onSubmit(form);
+    } catch (err: any) {
+      setError(err.message || '고객 등록에 실패했습니다.');
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-white mb-6">👤 새 고객 등록</h2>
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
         <div className="space-y-4">
           <div>
             <label htmlFor="cust-name" className="block text-sm text-dark-muted mb-1">이름 *</label>
@@ -339,7 +373,7 @@ function CreateCustomerModal({ onClose, onSubmit }: { onClose: () => void; onSub
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="btn-secondary flex-1">취소</button>
-          <button id="cust-submit" onClick={() => onSubmit(form)} className="btn-primary flex-1">등록</button>
+          <button id="cust-submit" onClick={handleSubmit} className="btn-primary flex-1">등록</button>
         </div>
       </div>
     </div>

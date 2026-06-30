@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { formatTime, getStatusColor, getStatusLabel, getSourceLabel } from '@/lib/utils';
 import type { Reservation, WaitingQueueEntry, Staff, ServiceMenu } from '@/types';
+import SaleEntryModal from '../pos/SaleEntryModal';
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -17,6 +18,7 @@ export default function ReservationsPage() {
   const [serviceList, setServiceList] = useState<ServiceMenu[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedReservationForSale, setSelectedReservationForSale] = useState<Reservation | null>(null);
 
   const fetchReservations = useCallback(async () => {
     setIsLoading(true);
@@ -67,6 +69,22 @@ export default function ReservationsPage() {
       fetchReservations();
       fetchWaitingQueue();
     } catch { /* error handled */ }
+  };
+
+  const handleCompleteClick = (r: Reservation) => {
+    setSelectedReservationForSale(r);
+  };
+
+  const handleSubmitSale = async (saleData: Record<string, unknown>) => {
+    try {
+      await api.post('/api/sales', saleData);
+      if (selectedReservationForSale) {
+        await handleStatusChange(selectedReservationForSale.id, 'completed');
+      }
+      setSelectedReservationForSale(null);
+    } catch (err: any) {
+      alert(err.message || '매출 등록에 실패했습니다.');
+    }
   };
 
   const handleAddWalkin = async (formData: Record<string, string>) => {
@@ -154,7 +172,7 @@ export default function ReservationsPage() {
                                   className="text-xs btn-ghost text-green-400">시술 시작</button>
                               )}
                               {r.status === 'in_progress' && (
-                                <button onClick={() => handleStatusChange(r.id, 'completed')}
+                                <button onClick={() => handleCompleteClick(r)}
                                   className="text-xs btn-ghost text-blue-400">완료</button>
                               )}
                               {r.status !== 'canceled' && r.status !== 'completed' && (
@@ -232,6 +250,22 @@ export default function ReservationsPage() {
           onSubmit={handleCreateReservation}
         />
       )}
+
+      {/* Sale Entry Modal for Completion */}
+      {selectedReservationForSale && (
+        <SaleEntryModal
+          staffList={staffList}
+          serviceList={serviceList}
+          onClose={() => setSelectedReservationForSale(null)}
+          onSubmit={handleSubmitSale}
+          initialData={{
+            staff_id: selectedReservationForSale.staff_id || '',
+            service_id: selectedReservationForSale.service_id || '',
+            item_name: selectedReservationForSale.treatment_name || '',
+            memo: selectedReservationForSale.memo || '',
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -253,6 +287,21 @@ function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
     end_time: '11:00',
     memo: '',
   });
+
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setError('');
+    try {
+      if (!form.customer_name) throw new Error('고객명을 입력해주세요.');
+      if (!form.customer_phone) throw new Error('연락처를 입력해주세요.');
+      if (!form.date || !form.start_time || !form.end_time) throw new Error('날짜와 시간을 확인해주세요.');
+      
+      await onSubmit(form);
+    } catch (err: any) {
+      setError(err.message || '예약 등록에 실패했습니다.');
+    }
+  };
 
   const handleServiceChange = (id: string) => {
     const service = serviceList.find(s => s.id === id);
@@ -293,6 +342,13 @@ function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-white mb-6">📅 새 예약 등록</h2>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <label htmlFor="res-customer-name" className="block text-sm text-dark-muted mb-1">고객명 *</label>
@@ -354,7 +410,7 @@ function ReservationModal({ staffList, serviceList, onClose, onSubmit }: {
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="btn-secondary flex-1">취소</button>
-          <button id="res-submit" onClick={() => onSubmit(form)} className="btn-primary flex-1">예약 등록</button>
+          <button id="res-submit" onClick={handleSubmit} className="btn-primary flex-1">예약 등록</button>
         </div>
       </div>
     </div>
