@@ -1,8 +1,10 @@
 package repository
 
-import "context"
-import "salon-core/internal/model"
-import "github.com/jackc/pgx/v5/pgxpool"
+import (
+	"context"
+	"github.com/Kimjibeom/salon-core/backend/internal/model"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
 type SettingRepository struct {
 	db *pgxpool.Pool

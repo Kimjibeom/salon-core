@@ -3,8 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"salon-core/internal/model"
-	"salon-core/internal/service"
+	"github.com/Kimjibeom/salon-core/backend/internal/model"
+	"github.com/Kimjibeom/salon-core/backend/internal/service"
 )
 
 type SettingHandler struct {

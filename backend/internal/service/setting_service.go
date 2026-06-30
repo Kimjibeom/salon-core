@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
-	"salon-core/internal/model"
-	"salon-core/internal/repository"
+	"github.com/Kimjibeom/salon-core/backend/internal/model"
+	"github.com/Kimjibeom/salon-core/backend/internal/repository"
 )
 
 type SettingService struct {
