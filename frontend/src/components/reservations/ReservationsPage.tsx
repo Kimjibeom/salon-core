@@ -54,8 +54,8 @@ export default function ReservationsPage() {
 
   const fetchCustomers = useCallback(async () => {
     try {
-      const data = await api.get<Customer[]>('/api/customers');
-      setCustomerList(data || []);
+      const res = await api.get<{ data: Customer[]; total: number }>('/api/customers?limit=100');
+      setCustomerList(res.data || []);
     } catch { setCustomerList([]); }
   }, []);
 
