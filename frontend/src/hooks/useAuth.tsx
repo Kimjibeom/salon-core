@@ -15,6 +15,9 @@ interface AuthContextType {
   isDesigner: boolean;
 }
 
+const AUTH_TOKEN_KEY = 'salon_core_token';
+const AUTH_STAFF_KEY = 'salon_core_staff';
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -23,8 +26,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session - token is stored in memory only for security
-    // On page refresh, user must re-authenticate
+    // Restore session from localStorage on mount
+    try {
+      const savedToken = localStorage.getItem(AUTH_TOKEN_KEY);
+      const savedStaff = localStorage.getItem(AUTH_STAFF_KEY);
+      if (savedToken && savedStaff) {
+        setToken(savedToken);
+        setStaff(JSON.parse(savedStaff));
+        api.setToken(savedToken);
+      }
+    } catch {
+      // If localStorage is corrupted, clear it
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(AUTH_STAFF_KEY);
+    }
     setIsLoading(false);
   }, []);
 
@@ -33,12 +48,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(response.token);
     setStaff(response.staff);
     api.setToken(response.token);
+    // Persist to localStorage
+    localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+    localStorage.setItem(AUTH_STAFF_KEY, JSON.stringify(response.staff));
   }, []);
 
   const logout = useCallback(() => {
     setToken(null);
     setStaff(null);
     api.setToken(null);
+    // Clear persisted session
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_STAFF_KEY);
     // Full page reload to clear all in-memory state
     window.location.href = '/';
   }, []);
