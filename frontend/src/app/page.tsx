@@ -1,7 +1,7 @@
 // Copyright 2026. Kimjibeom. All rights reserved.
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import type { WebSocketEvent } from '@/types';
@@ -18,10 +18,31 @@ import NotificationPopup from '@/components/ui/NotificationPopup';
 
 type TabKey = 'reservations' | 'customers' | 'pos' | 'analytics' | 'staff' | 'services';
 
+const VALID_TABS: TabKey[] = ['reservations', 'customers', 'pos', 'analytics', 'staff', 'services'];
+
+function getTabFromHash(): TabKey {
+  if (typeof window === 'undefined') return 'reservations';
+  const hash = window.location.hash.replace('#', '');
+  return VALID_TABS.includes(hash as TabKey) ? (hash as TabKey) : 'reservations';
+}
+
 export default function Home() {
   const { staff, isLoading } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabKey>('reservations');
+  const [activeTab, setActiveTab] = useState<TabKey>(getTabFromHash);
   const [notifications, setNotifications] = useState<WebSocketEvent[]>([]);
+
+  // Sync tab changes to URL hash
+  const handleTabChange = useCallback((tab: TabKey) => {
+    setActiveTab(tab);
+    window.location.hash = tab;
+  }, []);
+
+  // Handle browser back/forward
+  useEffect(() => {
+    const onHashChange = () => setActiveTab(getTabFromHash());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   const handleWebSocketEvent = useCallback((event: WebSocketEvent) => {
     setNotifications((prev) => [event, ...prev].slice(0, 5));
@@ -61,7 +82,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex bg-dark-bg">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <Sidebar activeTab={activeTab} onTabChange={handleTabChange} />
       <div className="flex-1 flex flex-col min-h-screen lg:ml-64">
         <Header isConnected={isConnected} />
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
