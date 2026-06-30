@@ -77,6 +77,7 @@ func main() {
 	serviceHandler := handler.NewServiceMenuHandler(serviceService)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	marketingHandler := handler.NewMarketingHandler(marketingService)
+	naverSyncHandler := handler.NewNaverSyncHandler()
 
 	// Initialize cron scheduler
 	cronScheduler := scheduler.NewScheduler(pool, customerRepo, membershipRepo)
@@ -111,6 +112,12 @@ func main() {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
+		}
+
+		// Webhook routes (public/verified internally)
+		syncPublic := api.Group("/sync")
+		{
+			syncPublic.POST("/naver/webhook", naverSyncHandler.HandleWebhook)
 		}
 
 		// Protected routes
@@ -212,6 +219,12 @@ func main() {
 			marketing.Use(middleware.RequireRole("admin"))
 			{
 				marketing.POST("/targets", marketingHandler.ExtractTargets)
+			}
+
+			// External System Sync
+			sync := protected.Group("/sync")
+			{
+				sync.POST("/naver/manual", middleware.RequireRole("admin"), naverSyncHandler.TriggerManualSync)
 			}
 		}
 	}
