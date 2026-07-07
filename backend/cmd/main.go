@@ -41,6 +41,12 @@ func main() {
 	}
 	defer pool.Close()
 
+	// Run auto-migrations
+	// Note: assumes the binary is run from the backend directory or has access to migrations folder
+	if err := database.RunMigrations(ctx, pool, "migrations"); err != nil {
+		log.Printf("Auto-migration encountered an error: %v", err)
+	}
+
 	// Initialize repositories
 	staffRepo := repository.NewStaffRepository(pool)
 	customerRepo := repository.NewCustomerRepository(pool)
