@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS staffs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_staffs_role ON staffs(role);
-CREATE INDEX idx_staffs_is_active ON staffs(is_active);
+CREATE INDEX IF NOT EXISTS idx_staffs_role ON staffs(role);
+CREATE INDEX IF NOT EXISTS idx_staffs_is_active ON staffs(is_active);
 
 -- ============================================
 -- 2. customers (고객)
@@ -45,11 +45,11 @@ CREATE TABLE IF NOT EXISTS customers (
     is_deleted BOOLEAN NOT NULL DEFAULT false
 );
 
-CREATE INDEX idx_customers_phone ON customers(phone);
-CREATE INDEX idx_customers_name ON customers(name);
-CREATE INDEX idx_customers_birth_date ON customers(birth_date);
-CREATE INDEX idx_customers_last_visited ON customers(last_visited_at);
-CREATE INDEX idx_customers_tags ON customers USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);
+CREATE INDEX IF NOT EXISTS idx_customers_birth_date ON customers(birth_date);
+CREATE INDEX IF NOT EXISTS idx_customers_last_visited ON customers(last_visited_at);
+CREATE INDEX IF NOT EXISTS idx_customers_tags ON customers USING GIN(tags);
 
 -- ============================================
 -- 3. charts (시술 차트 / 히스토리)
@@ -68,9 +68,9 @@ CREATE TABLE IF NOT EXISTS charts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_charts_customer ON charts(customer_id);
-CREATE INDEX idx_charts_staff ON charts(staff_id);
-CREATE INDEX idx_charts_created ON charts(created_at);
+CREATE INDEX IF NOT EXISTS idx_charts_customer ON charts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_charts_staff ON charts(staff_id);
+CREATE INDEX IF NOT EXISTS idx_charts_created ON charts(created_at);
 
 -- ============================================
 -- 4. memberships (정액권 / 회원권)
@@ -91,10 +91,10 @@ CREATE TABLE IF NOT EXISTS memberships (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_memberships_customer ON memberships(customer_id);
-CREATE INDEX idx_memberships_type ON memberships(type);
-CREATE INDEX idx_memberships_expired ON memberships(expired_at);
-CREATE INDEX idx_memberships_active ON memberships(is_active);
+CREATE INDEX IF NOT EXISTS idx_memberships_customer ON memberships(customer_id);
+CREATE INDEX IF NOT EXISTS idx_memberships_type ON memberships(type);
+CREATE INDEX IF NOT EXISTS idx_memberships_expired ON memberships(expired_at);
+CREATE INDEX IF NOT EXISTS idx_memberships_active ON memberships(is_active);
 
 -- ============================================
 -- 5. reservations (예약)
@@ -118,12 +118,12 @@ CREATE TABLE IF NOT EXISTS reservations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_reservations_date ON reservations(date);
-CREATE INDEX idx_reservations_customer ON reservations(customer_id);
-CREATE INDEX idx_reservations_staff ON reservations(staff_id);
-CREATE INDEX idx_reservations_status ON reservations(status);
-CREATE INDEX idx_reservations_source ON reservations(source);
-CREATE INDEX idx_reservations_date_staff ON reservations(date, staff_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_date ON reservations(date);
+CREATE INDEX IF NOT EXISTS idx_reservations_customer ON reservations(customer_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_staff ON reservations(staff_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
+CREATE INDEX IF NOT EXISTS idx_reservations_source ON reservations(source);
+CREATE INDEX IF NOT EXISTS idx_reservations_date_staff ON reservations(date, staff_id);
 
 -- ============================================
 -- 6. sales (매출)
@@ -146,12 +146,12 @@ CREATE TABLE IF NOT EXISTS sales (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_sales_staff ON sales(staff_id);
-CREATE INDEX idx_sales_customer ON sales(customer_id);
-CREATE INDEX idx_sales_reservation ON sales(reservation_id);
-CREATE INDEX idx_sales_category ON sales(category);
-CREATE INDEX idx_sales_created ON sales(created_at);
-CREATE INDEX idx_sales_payment ON sales(payment_method);
+CREATE INDEX IF NOT EXISTS idx_sales_staff ON sales(staff_id);
+CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);
+CREATE INDEX IF NOT EXISTS idx_sales_reservation ON sales(reservation_id);
+CREATE INDEX IF NOT EXISTS idx_sales_category ON sales(category);
+CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
+CREATE INDEX IF NOT EXISTS idx_sales_payment ON sales(payment_method);
 
 -- ============================================
 -- 7. notification_queue (알림 큐)
@@ -169,9 +169,9 @@ CREATE TABLE IF NOT EXISTS notification_queue (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_notifications_status ON notification_queue(status);
-CREATE INDEX idx_notifications_scheduled ON notification_queue(scheduled_at);
-CREATE INDEX idx_notifications_customer ON notification_queue(customer_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notification_queue(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_scheduled ON notification_queue(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_customer ON notification_queue(customer_id);
 
 -- ============================================
 -- 8. membership_transactions (멤버십 차감 이력)
@@ -190,8 +190,8 @@ CREATE TABLE IF NOT EXISTS membership_transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_membership_tx_membership ON membership_transactions(membership_id);
-CREATE INDEX idx_membership_tx_sale ON membership_transactions(sale_id);
+CREATE INDEX IF NOT EXISTS idx_membership_tx_membership ON membership_transactions(membership_id);
+CREATE INDEX IF NOT EXISTS idx_membership_tx_sale ON membership_transactions(sale_id);
 
 -- ============================================
 -- Updated_at trigger function
@@ -204,6 +204,15 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_staffs_updated_at BEFORE UPDATE ON staffs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_memberships_updated_at BEFORE UPDATE ON memberships FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_staffs_updated_at') THEN
+        CREATE TRIGGER update_staffs_updated_at BEFORE UPDATE ON staffs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_memberships_updated_at') THEN
+        CREATE TRIGGER update_memberships_updated_at BEFORE UPDATE ON memberships FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_reservations_updated_at') THEN
+        CREATE TRIGGER update_reservations_updated_at BEFORE UPDATE ON reservations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
