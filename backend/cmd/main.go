@@ -50,6 +50,7 @@ func main() {
 	saleRepo := repository.NewSaleRepository(pool)
 	serviceRepo := repository.NewServiceMenuRepository(pool)
 	settingRepo := repository.NewSettingRepository(pool)
+	naverMappingRepo := repository.NewNaverMappingRepository(pool)
 
 	// Initialize WebSocket hub
 	hub := websocket.NewHub()
@@ -67,6 +68,7 @@ func main() {
 	analyticsService := service.NewAnalyticsService(saleRepo)
 	marketingService := service.NewMarketingService(saleRepo)
 	settingService := service.NewSettingService(settingRepo)
+	bookingService := service.NewBookingService(pool, reservationRepo, staffRepo, serviceRepo, settingRepo, hub)
 
 	// Initialize handlers
 	authHandler := handler.NewAuthHandler(authService)
@@ -79,8 +81,10 @@ func main() {
 	serviceHandler := handler.NewServiceMenuHandler(serviceService)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	marketingHandler := handler.NewMarketingHandler(marketingService)
-	naverSyncHandler := handler.NewNaverSyncHandler()
+	naverSyncHandler := handler.NewNaverSyncHandler(reservationService, settingService, naverMappingRepo, hub)
 	settingHandler := handler.NewSettingHandler(settingService)
+	bookingHandler := handler.NewBookingHandler(bookingService)
+	naverMappingHandler := handler.NewNaverMappingHandler(naverMappingRepo)
 
 	// Initialize cron scheduler
 	cronScheduler := scheduler.NewScheduler(pool, customerRepo, membershipRepo)
@@ -115,6 +119,16 @@ func main() {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", authHandler.Login)
+		}
+
+		// Public Booking routes (no auth required)
+		booking := api.Group("/booking")
+		{
+			booking.GET("/shop", bookingHandler.GetShopInfo)
+			booking.GET("/services", bookingHandler.GetServiceList)
+			booking.GET("/staff", bookingHandler.GetStaffList)
+			booking.GET("/availability", bookingHandler.GetAvailability)
+			booking.POST("/reservations", bookingHandler.CreatePublicReservation)
 		}
 
 		// Webhook routes (public/verified internally)
@@ -236,6 +250,15 @@ func main() {
 			{
 				settings.GET("", settingHandler.GetSettings)
 				settings.PUT("", settingHandler.UpdateSettingsBatch)
+			}
+
+			// Naver Mappings (admin only)
+			mappings := protected.Group("/naver-mappings")
+			mappings.Use(middleware.RequireRole("admin"))
+			{
+				mappings.GET("", naverMappingHandler.GetAll)
+				mappings.POST("", naverMappingHandler.Create)
+				mappings.DELETE("/:id", naverMappingHandler.Delete)
 			}
 		}
 	}

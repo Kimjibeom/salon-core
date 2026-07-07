@@ -173,7 +173,7 @@ export default function ReservationsPage() {
                                 {getStatusLabel(r.status)}
                               </span>
                               {r.source !== 'offline' && (
-                                <span className="badge bg-purple-500/20 text-purple-400">
+                                <span className={`badge ${r.source === 'naver' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
                                   {getSourceLabel(r.source)}
                                 </span>
                               )}

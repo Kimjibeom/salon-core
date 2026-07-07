@@ -50,6 +50,19 @@ func (r *ServiceMenuRepository) FindAll(ctx context.Context) ([]model.ServiceMen
 	return services, nil
 }
 
+// GetAll is an alias for FindAll, used by the booking service.
+func (r *ServiceMenuRepository) GetAll(ctx context.Context) ([]model.ServiceMenu, error) {
+	return r.FindAll(ctx)
+}
+
+// GetByID fetches a single service menu by ID.
+func (r *ServiceMenuRepository) GetByID(ctx context.Context, id string) (*model.ServiceMenu, error) {
+	query := `SELECT id, category, name, price, duration, is_active, created_at, updated_at
+		FROM services WHERE id = $1`
+	row := r.db.QueryRow(ctx, query, id)
+	return scanServiceMenu(row)
+}
+
 func (r *ServiceMenuRepository) Update(ctx context.Context, id string, req *model.ServiceMenuUpdateRequest) (*model.ServiceMenu, error) {
 	query := `UPDATE services SET
 		category = COALESCE($1, category),

@@ -16,6 +16,7 @@ type Staff struct {
 	ServiceIncentiveRate float64   `json:"service_incentive_rate"`
 	ProductIncentiveRate float64   `json:"product_incentive_rate"`
 	MonthlyTarget        float64   `json:"monthly_target"`
+	DayOff               []int     `json:"day_off"`
 	IsActive             bool      `json:"is_active"`
 	CreatedAt            time.Time `json:"created_at"`
 	UpdatedAt            time.Time `json:"updated_at"`
