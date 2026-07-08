@@ -132,11 +132,23 @@ func (s *ReservationService) UpdateStatus(ctx context.Context, id string, status
 		return err
 	}
 
-	// If completed, update customer's last visit
+	// If completed, resolve the customer by phone (auto-registering new customers)
+	// and update visit history
 	if status == "completed" {
 		res, err := s.reservationRepo.GetByID(ctx, id)
-		if err == nil && res.CustomerID != nil {
-			_ = s.customerRepo.UpdateLastVisit(ctx, *res.CustomerID)
+		if err == nil {
+			customerID := ""
+			if res.CustomerID != nil {
+				customerID = *res.CustomerID
+			} else if res.CustomerPhone != "" {
+				if cust, cerr := s.customerRepo.FindOrCreateByPhone(ctx, res.CustomerName, res.CustomerPhone); cerr == nil {
+					customerID = cust.ID
+					_ = s.reservationRepo.SetCustomer(ctx, id, customerID)
+				}
+			}
+			if customerID != "" {
+				_ = s.customerRepo.UpdateLastVisit(ctx, customerID)
+			}
 		}
 	}
 

@@ -406,6 +406,10 @@ export default function ReservationsPage() {
           serviceList={serviceList}
           onClose={() => setSelectedReservationForSale(null)}
           onSubmit={handleSubmitSale}
+          lockedCustomer={{
+            name: selectedReservationForSale.customer_name,
+            phone: selectedReservationForSale.customer_phone,
+          }}
           initialData={{
             staff_id: selectedReservationForSale.staff_id || '',
             service_id: selectedReservationForSale.service_id || '',
@@ -459,19 +463,25 @@ function ReservationModal({ staffList, serviceList, customerList, onClose, onSub
       if (isNewCustomer) {
         if (!form.customer_name) throw new Error('고객명을 입력해주세요.');
         if (!form.customer_phone) throw new Error('연락처를 입력해주세요.');
-        // Create customer first
-        const custRes = await api.post<{id: string}>('/api/customers', {
-          name: form.customer_name,
-          phone: form.customer_phone,
-        });
-        if (custRes && custRes.id) {
-          form.customer_id = custRes.id;
+        // Customers are keyed by phone: match an existing record first, otherwise create one
+        let customerId = '';
+        try {
+          const existing = await api.get<Customer>(`/api/customers/lookup?phone=${encodeURIComponent(form.customer_phone)}`);
+          if (existing?.id) customerId = existing.id;
+        } catch { /* not found — will create */ }
+        if (!customerId) {
+          const custRes = await api.post<{id: string}>('/api/customers', {
+            name: form.customer_name,
+            phone: form.customer_phone,
+          });
+          customerId = custRes.id;
           await fetchCustomers();
         }
+        form.customer_id = customerId;
       } else {
         if (!form.customer_id) throw new Error('고객을 선택해주세요.');
       }
-      
+
       if (!form.date || !form.start_time || !form.end_time) throw new Error('날짜와 시간을 확인해주세요.');
       
       await onSubmit(form);
@@ -664,14 +674,22 @@ function WalkinModal({ serviceList, customerList, onClose, onSubmit, fetchCustom
     try {
       if (isNewCustomer) {
         if (!form.customer_name) throw new Error('고객명을 입력해주세요.');
-        const custRes = await api.post<{id: string}>('/api/customers', {
-          name: form.customer_name,
-          phone: form.customer_phone,
-        });
-        if (custRes && custRes.id) {
-          form.customer_id = custRes.id;
+        if (!form.customer_phone) throw new Error('연락처를 입력해주세요.');
+        // Customers are keyed by phone: match an existing record first, otherwise create one
+        let customerId = '';
+        try {
+          const existing = await api.get<Customer>(`/api/customers/lookup?phone=${encodeURIComponent(form.customer_phone)}`);
+          if (existing?.id) customerId = existing.id;
+        } catch { /* not found — will create */ }
+        if (!customerId) {
+          const custRes = await api.post<{id: string}>('/api/customers', {
+            name: form.customer_name,
+            phone: form.customer_phone,
+          });
+          customerId = custRes.id;
           await fetchCustomers();
         }
+        form.customer_id = customerId;
       } else {
         if (!form.customer_id && !form.customer_name) {
           // Allow anonymous walkin if name is given

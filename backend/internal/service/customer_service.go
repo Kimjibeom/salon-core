@@ -3,11 +3,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Kimjibeom/salon-core/backend/internal/model"
 	"github.com/Kimjibeom/salon-core/backend/internal/repository"
 )
+
+// ErrDuplicatePhone is returned when creating a customer with a phone number that already exists.
+var ErrDuplicatePhone = errors.New("이미 등록된 전화번호입니다")
 
 // CustomerService handles business logic for customer management.
 type CustomerService struct {
@@ -21,6 +25,11 @@ func NewCustomerService(customerRepo *repository.CustomerRepository, chartRepo *
 }
 
 func (s *CustomerService) Create(ctx context.Context, req *model.CustomerCreateRequest) (*model.Customer, error) {
+	// Customers are keyed by phone number — reject duplicates up front.
+	if existing, err := s.customerRepo.GetByPhone(ctx, req.Phone); err == nil && existing != nil {
+		return nil, ErrDuplicatePhone
+	}
+
 	c := &model.Customer{
 		Name:  req.Name,
 		Phone: req.Phone,

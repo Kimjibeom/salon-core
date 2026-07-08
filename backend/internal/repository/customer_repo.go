@@ -96,6 +96,27 @@ func (r *CustomerRepository) GetByPhone(ctx context.Context, phone string) (*mod
 	return c, nil
 }
 
+// FindOrCreateByPhone returns the active customer with the given phone,
+// creating a new record when none exists. Phone is the customer identity key.
+func (r *CustomerRepository) FindOrCreateByPhone(ctx context.Context, name, phone string) (*model.Customer, error) {
+	if c, err := r.GetByPhone(ctx, phone); err == nil {
+		return c, nil
+	}
+
+	nc := &model.Customer{Name: name, Phone: phone, Tags: []string{}}
+	if nc.Name == "" {
+		nc.Name = "미등록 고객"
+	}
+	if err := r.Create(ctx, nc); err != nil {
+		// A concurrent request may have inserted the same phone (unique index) — retry the lookup.
+		if c, lerr := r.GetByPhone(ctx, phone); lerr == nil {
+			return c, nil
+		}
+		return nil, err
+	}
+	return nc, nil
+}
+
 // List retrieves all customers with pagination.
 func (r *CustomerRepository) List(ctx context.Context, limit, offset int) ([]model.Customer, int, error) {
 	if limit <= 0 {

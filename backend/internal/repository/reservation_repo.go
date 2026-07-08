@@ -166,6 +166,13 @@ func (r *ReservationRepository) UpdateStatus(ctx context.Context, id string, sta
 	return err
 }
 
+// SetCustomer links a reservation to a customer record.
+func (r *ReservationRepository) SetCustomer(ctx context.Context, id string, customerID string) error {
+	query := `UPDATE reservations SET customer_id = $1 WHERE id = $2`
+	_, err := r.pool.Exec(ctx, query, customerID, id)
+	return err
+}
+
 // Update modifies an existing reservation.
 func (r *ReservationRepository) Update(ctx context.Context, id string, req *model.ReservationUpdateRequest) error {
 	query := `UPDATE reservations SET `

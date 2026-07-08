@@ -69,7 +69,7 @@ func main() {
 	chartService := service.NewChartService(chartRepo)
 	membershipService := service.NewMembershipService(membershipRepo)
 	reservationService := service.NewReservationService(reservationRepo, customerRepo, hub)
-	saleService := service.NewSaleService(saleRepo, membershipRepo, customerRepo)
+	saleService := service.NewSaleService(saleRepo, membershipRepo, customerRepo, reservationRepo)
 	serviceService := service.NewServiceMenuService(serviceRepo)
 	analyticsService := service.NewAnalyticsService(saleRepo)
 	marketingService := service.NewMarketingService(saleRepo)

@@ -10,16 +10,32 @@ import (
 
 // SaleService handles business logic for sales/POS.
 type SaleService struct {
-	saleRepo       *repository.SaleRepository
-	membershipRepo *repository.MembershipRepository
-	customerRepo   *repository.CustomerRepository
+	saleRepo        *repository.SaleRepository
+	membershipRepo  *repository.MembershipRepository
+	customerRepo    *repository.CustomerRepository
+	reservationRepo *repository.ReservationRepository
 }
 
-func NewSaleService(saleRepo *repository.SaleRepository, membershipRepo *repository.MembershipRepository, customerRepo *repository.CustomerRepository) *SaleService {
-	return &SaleService{saleRepo: saleRepo, membershipRepo: membershipRepo, customerRepo: customerRepo}
+func NewSaleService(saleRepo *repository.SaleRepository, membershipRepo *repository.MembershipRepository, customerRepo *repository.CustomerRepository, reservationRepo *repository.ReservationRepository) *SaleService {
+	return &SaleService{saleRepo: saleRepo, membershipRepo: membershipRepo, customerRepo: customerRepo, reservationRepo: reservationRepo}
 }
 
 func (s *SaleService) Create(ctx context.Context, req *model.SaleCreateRequest) (*model.Sale, error) {
+	// For reservation-linked sales, resolve the customer from the reservation's
+	// phone number: match an existing customer or auto-register a new one.
+	if req.ReservationID != "" && req.CustomerID == "" {
+		if res, err := s.reservationRepo.GetByID(ctx, req.ReservationID); err == nil {
+			if res.CustomerID != nil {
+				req.CustomerID = *res.CustomerID
+			} else if res.CustomerPhone != "" {
+				if cust, cerr := s.customerRepo.FindOrCreateByPhone(ctx, res.CustomerName, res.CustomerPhone); cerr == nil {
+					req.CustomerID = cust.ID
+					_ = s.reservationRepo.SetCustomer(ctx, req.ReservationID, cust.ID)
+				}
+			}
+		}
+	}
+
 	sale := &model.Sale{
 		StaffID:            req.StaffID,
 		ItemName:           req.ItemName,

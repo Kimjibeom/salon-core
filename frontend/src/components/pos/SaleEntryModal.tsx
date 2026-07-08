@@ -6,7 +6,7 @@ import api from '@/lib/api';
 import { formatCurrency, getPaymentLabel } from '@/lib/utils';
 import type { Staff, ServiceMenu, Customer, Membership } from '@/types';
 
-export default function SaleEntryModal({ staffList, serviceList, onClose, onSubmit, initialData }: {
+export default function SaleEntryModal({ staffList, serviceList, onClose, onSubmit, initialData, lockedCustomer }: {
   staffList: Staff[];
   serviceList: ServiceMenu[];
   onClose: () => void;
@@ -19,6 +19,8 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
     total_amount?: string;
     memo?: string;
   };
+  /** When completing a reservation the customer is fixed — matched/registered by phone number on the server. */
+  lockedCustomer?: { name: string; phone: string };
 }) {
   const [form, setForm] = useState({
     staff_id: initialData?.staff_id || '',
@@ -53,10 +55,11 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
   }, [initialData, serviceList]);
 
   useEffect(() => {
+    if (lockedCustomer) return; // customer is fixed by the reservation, no picker needed
     api.get<{ data: Customer[]; total: number }>('/api/customers?limit=100')
       .then((res) => setCustomerList(res?.data || []))
       .catch(() => setCustomerList([]));
-  }, []);
+  }, [lockedCustomer]);
 
   // Load the selected customer's active memberships (needed for balance deduction)
   useEffect(() => {
@@ -116,17 +119,30 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
             </select>
           </div>
 
-          {/* Customer Selection (required for membership payment) */}
-          <div>
-            <label htmlFor="sale-customer" className="block text-sm text-dark-muted mb-1">
-              고객 {usesMembership ? '* (정액권 결제 시 필수)' : '(선택)'}
-            </label>
-            <select id="sale-customer" className="glass-input w-full" value={form.customer_id}
-              onChange={(e) => setForm({ ...form, customer_id: e.target.value, membership_id: '' })}>
-              <option value="">선택 안함 (비회원)</option>
-              {customerList.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
-            </select>
-          </div>
+          {/* Customer: fixed for reservation completion, selectable for direct POS sales */}
+          {lockedCustomer ? (
+            <div>
+              <label className="block text-sm text-dark-muted mb-1">고객</label>
+              <div className="glass-input w-full flex items-center justify-between bg-dark-surface/50">
+                <span className="text-white">{lockedCustomer.name}</span>
+                <span className="text-dark-muted text-sm">{lockedCustomer.phone}</span>
+              </div>
+              <p className="text-xs text-dark-muted mt-1">
+                전화번호 기준으로 기존 고객과 자동 매칭되며, 없으면 신규 고객으로 자동 등록됩니다.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="sale-customer" className="block text-sm text-dark-muted mb-1">
+                고객 {usesMembership ? '* (정액권 결제 시 필수)' : '(선택)'}
+              </label>
+              <select id="sale-customer" className="glass-input w-full" value={form.customer_id}
+                onChange={(e) => setForm({ ...form, customer_id: e.target.value, membership_id: '' })}>
+                <option value="">선택 안함 (비회원)</option>
+                {customerList.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Item & Category */}
           <div className="grid grid-cols-2 gap-3">
@@ -229,7 +245,9 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
                   <p className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">해당 고객에게 사용 가능한 회원권이 없습니다.</p>
                 )
               ) : (
-                <p className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">먼저 고객을 선택해주세요.</p>
+                <p className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">
+                  {lockedCustomer ? '해당 고객은 사용 가능한 회원권이 없습니다.' : '먼저 고객을 선택해주세요.'}
+                </p>
               )}
             </div>
           )}

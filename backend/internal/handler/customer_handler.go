@@ -2,6 +2,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -26,6 +27,10 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	}
 	customer, err := h.customerService.Create(c.Request.Context(), &req)
 	if err != nil {
+		if errors.Is(err, service.ErrDuplicatePhone) {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create customer"})
 		return
 	}
