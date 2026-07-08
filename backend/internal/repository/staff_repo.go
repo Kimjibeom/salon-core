@@ -32,7 +32,7 @@ func (r *StaffRepository) Create(ctx context.Context, s *model.Staff) error {
 // GetByID fetches a staff member by ID.
 func (r *StaffRepository) GetByID(ctx context.Context, id string) (*model.Staff, error) {
 	s := &model.Staff{}
-	query := `SELECT id, name, COALESCE(email, ''), password_hash, role, COALESCE(phone, ''), service_incentive_rate, product_incentive_rate, monthly_target, COALESCE(day_off, '{}'), is_active, created_at, updated_at
+	query := `SELECT id, name, COALESCE(email, ''), password_hash, role, COALESCE(phone, ''), service_incentive_rate, product_incentive_rate, monthly_target, COALESCE(day_off, ARRAY[]::integer[]), is_active, created_at, updated_at
 		FROM staffs WHERE id = $1`
 	err := r.pool.QueryRow(ctx, query, id).Scan(
 		&s.ID, &s.Name, &s.Email, &s.PasswordHash, &s.Role, &s.Phone,
@@ -48,7 +48,7 @@ func (r *StaffRepository) GetByID(ctx context.Context, id string) (*model.Staff,
 // GetByEmail fetches a staff member by email for authentication.
 func (r *StaffRepository) GetByEmail(ctx context.Context, email string) (*model.Staff, error) {
 	s := &model.Staff{}
-	query := `SELECT id, name, COALESCE(email, ''), password_hash, role, COALESCE(phone, ''), service_incentive_rate, product_incentive_rate, monthly_target, COALESCE(day_off, '{}'), is_active, created_at, updated_at
+	query := `SELECT id, name, COALESCE(email, ''), password_hash, role, COALESCE(phone, ''), service_incentive_rate, product_incentive_rate, monthly_target, COALESCE(day_off, ARRAY[]::integer[]), is_active, created_at, updated_at
 		FROM staffs WHERE email = $1 AND is_active = true`
 	err := r.pool.QueryRow(ctx, query, email).Scan(
 		&s.ID, &s.Name, &s.Email, &s.PasswordHash, &s.Role, &s.Phone,
@@ -63,7 +63,7 @@ func (r *StaffRepository) GetByEmail(ctx context.Context, email string) (*model.
 
 // List retrieves all active staff members.
 func (r *StaffRepository) List(ctx context.Context) ([]model.Staff, error) {
-	query := `SELECT id, name, COALESCE(email, ''), role, COALESCE(phone, ''), service_incentive_rate, product_incentive_rate, monthly_target, COALESCE(day_off, '{}'), is_active, created_at, updated_at
+	query := `SELECT id, name, COALESCE(email, ''), role, COALESCE(phone, ''), service_incentive_rate, product_incentive_rate, monthly_target, COALESCE(day_off, ARRAY[]::integer[]), is_active, created_at, updated_at
 		FROM staffs WHERE is_active = true ORDER BY name`
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
