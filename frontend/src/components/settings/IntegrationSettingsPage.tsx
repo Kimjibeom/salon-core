@@ -162,6 +162,33 @@ export default function IntegrationSettingsPage() {
         </div>
       )}
 
+      {/* Shop Basic Info (shown on the public booking page) */}
+      <div className="glass-card p-6 space-y-6">
+        <div>
+          <h2 className="text-xl font-bold text-white mb-2">🏠 매장 기본 정보</h2>
+          <p className="text-sm text-dark-muted">
+            매장명, 연락처, 영업시간 등의 정보입니다. 자체 예약 사이트 상단에 노출되며,<br/>
+            영업시간과 예약 슬롯 간격은 예약 가능 시간 계산에 사용됩니다.
+          </p>
+        </div>
+        <div className="space-y-4 max-w-2xl">
+          {settings.filter(s => s.key.startsWith('shop_') || s.key === 'booking_slot_interval').map(setting => (
+            <div key={setting.key}>
+              <label className="block text-sm font-medium text-dark-muted mb-1">
+                {setting.description || setting.key}
+              </label>
+              <input
+                type={setting.key.endsWith('_time') ? 'time' : setting.key === 'booking_slot_interval' ? 'number' : 'text'}
+                className="glass-input w-full"
+                value={setting.value}
+                onChange={(e) => handleChange(setting.key, e.target.value)}
+                placeholder={`${setting.description || setting.key} 입력`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Webhook URL Info */}
       <div className="glass-card p-6">
         <h2 className="text-xl font-bold text-white mb-2">📡 웹훅 URL</h2>

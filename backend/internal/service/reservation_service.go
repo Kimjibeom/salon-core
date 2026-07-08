@@ -4,6 +4,7 @@ package service
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/Kimjibeom/salon-core/backend/internal/model"
 	"github.com/Kimjibeom/salon-core/backend/internal/repository"
@@ -56,6 +57,9 @@ func (s *ReservationService) Create(ctx context.Context, req *model.ReservationC
 	if req.StaffID != "" {
 		res.StaffID = &req.StaffID
 	}
+	if req.ServiceID != "" {
+		res.ServiceID = &req.ServiceID
+	}
 
 	if err := s.reservationRepo.Create(ctx, res); err != nil {
 		return nil, err
@@ -87,13 +91,20 @@ func (s *ReservationService) GetWaitingQueue(ctx context.Context) ([]model.Waiti
 	return s.reservationRepo.GetWaitingQueue(ctx)
 }
 
-func (s *ReservationService) AddToWaitingQueue(ctx context.Context, req *model.ReservationCreateRequest) (*model.Reservation, error) {
+func (s *ReservationService) AddToWaitingQueue(ctx context.Context, req *model.WaitingQueueCreateRequest) (*model.Reservation, error) {
+	customerName := req.CustomerName
+	if customerName == "" {
+		customerName = "워크인 고객"
+	}
+	// Walk-ins have no scheduled slot; record the arrival time (start_time/end_time are NOT NULL).
+	now := time.Now().Format("15:04")
+
 	res := &model.Reservation{
-		CustomerName:  req.CustomerName,
+		CustomerName:  customerName,
 		CustomerPhone: req.CustomerPhone,
 		TreatmentName: req.TreatmentName,
-		StartTime:     req.StartTime,
-		EndTime:       req.EndTime,
+		StartTime:     now,
+		EndTime:       now,
 		Source:        "offline",
 		Memo:          req.Memo,
 	}
@@ -103,6 +114,9 @@ func (s *ReservationService) AddToWaitingQueue(ctx context.Context, req *model.R
 	}
 	if req.StaffID != "" {
 		res.StaffID = &req.StaffID
+	}
+	if req.ServiceID != "" {
+		res.ServiceID = &req.ServiceID
 	}
 
 	if err := s.reservationRepo.AddToWaitingQueue(ctx, res); err != nil {

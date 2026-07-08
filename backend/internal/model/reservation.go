@@ -43,6 +43,18 @@ type ReservationCreateRequest struct {
 	Memo          string `json:"memo" binding:"max=2000"`
 }
 
+// WaitingQueueCreateRequest is the request body for adding a walk-in to the waiting queue.
+// Walk-ins have no fixed date/schedule, and anonymous guests may have no phone number.
+type WaitingQueueCreateRequest struct {
+	CustomerID    string `json:"customer_id" binding:"omitempty,uuid"`
+	StaffID       string `json:"staff_id" binding:"omitempty,uuid"`
+	CustomerName  string `json:"customer_name" binding:"max=100"`
+	CustomerPhone string `json:"customer_phone" binding:"max=20"`
+	ServiceID     string `json:"service_id" binding:"omitempty,uuid"`
+	TreatmentName string `json:"treatment_name" binding:"max=200"`
+	Memo          string `json:"memo" binding:"max=2000"`
+}
+
 // ReservationUpdateRequest is the request body for updating a reservation.
 type ReservationUpdateRequest struct {
 	StaffID       *string `json:"staff_id" binding:"omitempty,uuid"`

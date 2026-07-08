@@ -4,13 +4,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '@/lib/api';
 import { maskPhone, formatDate } from '@/lib/utils';
-import type { Customer, CustomerWithHistory, Chart, ServiceMenu } from '@/types';
+import type { Customer, CustomerWithHistory, Chart, ServiceMenu, Staff } from '@/types';
 
 export default function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithHistory | null>(null);
   const [serviceList, setServiceList] = useState<ServiceMenu[]>([]);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -35,12 +36,19 @@ export default function CustomersPage() {
     } catch { setServiceList([]); }
   }, []);
 
+  const fetchStaff = useCallback(async () => {
+    try {
+      const data = await api.get<Staff[]>('/api/staffs');
+      setStaffList(data || []);
+    } catch { setStaffList([]); }
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(fetchCustomers, 300);
     return () => clearTimeout(timer);
   }, [fetchCustomers]);
 
-  useEffect(() => { fetchServices(); }, [fetchServices]);
+  useEffect(() => { fetchServices(); fetchStaff(); }, [fetchServices, fetchStaff]);
 
   const handleSelectCustomer = async (id: string) => {
     try {
@@ -50,11 +58,10 @@ export default function CustomersPage() {
   };
 
   const handleCreateCustomer = async (form: Record<string, string>) => {
-    try {
-      await api.post('/api/customers', form);
-      setShowCreateModal(false);
-      fetchCustomers();
-    } catch { /* error handled */ }
+    // Errors propagate to the modal so the user can see the failure reason
+    await api.post('/api/customers', form);
+    setShowCreateModal(false);
+    fetchCustomers();
   };
 
   return (
@@ -120,7 +127,7 @@ export default function CustomersPage() {
         {/* Customer Detail / History Book */}
         <div className="lg:col-span-3">
           {selectedCustomer ? (
-            <CustomerDetail customer={selectedCustomer} serviceList={serviceList} onRefresh={() => handleSelectCustomer(selectedCustomer.id)} />
+            <CustomerDetail customer={selectedCustomer} serviceList={serviceList} staffList={staffList} onRefresh={() => handleSelectCustomer(selectedCustomer.id)} />
           ) : (
             <div className="glass-card p-12 text-center">
               <p className="text-4xl mb-3">📋</p>
@@ -138,18 +145,27 @@ export default function CustomersPage() {
   );
 }
 
-function CustomerDetail({ customer, serviceList, onRefresh }: { customer: CustomerWithHistory; serviceList: ServiceMenu[]; onRefresh: () => void }) {
+function CustomerDetail({ customer, serviceList, staffList, onRefresh }: { customer: CustomerWithHistory; serviceList: ServiceMenu[]; staffList: Staff[]; onRefresh: () => void }) {
   const [showChartForm, setShowChartForm] = useState(false);
+  const [showMembershipForm, setShowMembershipForm] = useState(false);
 
   const handleCreateChart = async (form: Record<string, string>) => {
-    try {
-      await api.post('/api/charts', {
-        ...form,
-        customer_id: customer.id,
-      });
-      setShowChartForm(false);
-      onRefresh();
-    } catch { /* error handled */ }
+    // Errors propagate to the form so the user can see the failure reason
+    await api.post('/api/charts', {
+      ...form,
+      customer_id: customer.id,
+    });
+    setShowChartForm(false);
+    onRefresh();
+  };
+
+  const handleCreateMembership = async (form: Record<string, unknown>) => {
+    await api.post('/api/memberships', {
+      ...form,
+      customer_id: customer.id,
+    });
+    setShowMembershipForm(false);
+    onRefresh();
   };
 
   return (
@@ -179,9 +195,21 @@ function CustomerDetail({ customer, serviceList, onRefresh }: { customer: Custom
       </div>
 
       {/* Memberships */}
-      {customer.memberships && customer.memberships.length > 0 && (
-        <div className="glass-card p-4">
-          <h3 className="font-semibold text-white mb-3">💳 멤버십</h3>
+      <div className="glass-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-white">💳 멤버십</h3>
+          <button id="add-membership-btn" onClick={() => setShowMembershipForm(true)} className="btn-primary text-xs py-1.5 px-3">
+            + 회원권 등록
+          </button>
+        </div>
+
+        {showMembershipForm && (
+          <MembershipForm onSubmit={handleCreateMembership} onCancel={() => setShowMembershipForm(false)} />
+        )}
+
+        {(!customer.memberships || customer.memberships.length === 0) ? (
+          <p className="text-dark-muted text-sm text-center py-4">등록된 회원권이 없습니다</p>
+        ) : (
           <div className="space-y-2">
             {customer.memberships.map((m) => (
               <div key={m.id} className="flex items-center justify-between bg-dark-surface/50 rounded-xl p-3">
@@ -190,6 +218,7 @@ function CustomerDetail({ customer, serviceList, onRefresh }: { customer: Custom
                   <span className="ml-2 badge bg-salon-500/20 text-salon-400">
                     {m.type === 'money' ? '금액형' : '횟수형'}
                   </span>
+                  {!m.is_active && <span className="ml-2 badge bg-red-500/20 text-red-400">만료</span>}
                 </div>
                 <div className="text-right">
                   {m.type === 'money' ? (
@@ -201,8 +230,8 @@ function CustomerDetail({ customer, serviceList, onRefresh }: { customer: Custom
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Chart History */}
       <div className="glass-card p-4">
@@ -214,7 +243,7 @@ function CustomerDetail({ customer, serviceList, onRefresh }: { customer: Custom
         </div>
 
         {showChartForm && (
-          <ChartForm serviceList={serviceList} onSubmit={handleCreateChart} onCancel={() => setShowChartForm(false)} />
+          <ChartForm serviceList={serviceList} staffList={staffList} onSubmit={handleCreateChart} onCancel={() => setShowChartForm(false)} />
         )}
 
         <div className="space-y-3">
@@ -265,7 +294,7 @@ function ChartEntry({ chart }: { chart: Chart }) {
   );
 }
 
-function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMenu[]; onSubmit: (form: Record<string, string>) => void; onCancel: () => void }) {
+function ChartForm({ serviceList, staffList, onSubmit, onCancel }: { serviceList: ServiceMenu[]; staffList: Staff[]; onSubmit: (form: Record<string, string>) => void; onCancel: () => void }) {
   const [form, setForm] = useState({ staff_id: '', service_id: '', recipe: '', treatment_name: '', notes: '' });
   const [error, setError] = useState('');
 
@@ -281,6 +310,7 @@ function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMe
   const handleSubmit = async () => {
     setError('');
     try {
+      if (!form.staff_id) throw new Error('담당 직원을 선택해주세요.');
       if (!form.service_id && !form.treatment_name) throw new Error('시술 메뉴를 선택하거나 시술명을 입력해주세요.');
       await onSubmit(form);
     } catch (err: any) {
@@ -296,6 +326,13 @@ function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMe
         </div>
       )}
       <div className="space-y-3">
+        <select id="chart-staff" className="glass-input w-full text-sm" value={form.staff_id}
+          onChange={(e) => setForm({ ...form, staff_id: e.target.value })}>
+          <option value="">담당 직원 선택 *</option>
+          {staffList.map(s => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
         <select className="glass-input w-full text-sm" value={form.service_id}
           onChange={(e) => handleServiceChange(e.target.value)}>
           <option value="">시술 메뉴 선택 (또는 직접 입력)</option>
@@ -314,6 +351,83 @@ function ChartForm({ serviceList, onSubmit, onCancel }: { serviceList: ServiceMe
         <div className="flex gap-2">
           <button onClick={onCancel} className="btn-secondary text-xs flex-1">취소</button>
           <button id="chart-submit" onClick={handleSubmit} className="btn-primary text-xs flex-1">저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MembershipForm({ onSubmit, onCancel }: { onSubmit: (form: Record<string, unknown>) => Promise<void>; onCancel: () => void }) {
+  const [form, setForm] = useState({
+    type: 'money' as 'money' | 'count',
+    name: '',
+    initial_balance: '',
+    initial_count: '',
+    target_treatment: '',
+    expired_at: '',
+  });
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    setError('');
+    try {
+      if (!form.name) throw new Error('회원권 이름을 입력해주세요.');
+      if (form.type === 'money' && !(parseFloat(form.initial_balance) > 0)) throw new Error('충전 금액을 입력해주세요.');
+      if (form.type === 'count' && !(parseInt(form.initial_count) > 0)) throw new Error('사용 횟수를 입력해주세요.');
+      await onSubmit({
+        type: form.type,
+        name: form.name,
+        initial_balance: form.type === 'money' ? parseFloat(form.initial_balance) || 0 : 0,
+        initial_count: form.type === 'count' ? parseInt(form.initial_count) || 0 : 0,
+        target_treatment: form.target_treatment,
+        expired_at: form.expired_at ? new Date(`${form.expired_at}T23:59:59`).toISOString() : '',
+      });
+    } catch (err: any) {
+      setError(err.message || '회원권 등록에 실패했습니다.');
+    }
+  };
+
+  return (
+    <div className="glass-card p-4 mb-4 border-salon-500/30">
+      {error && (
+        <div className="mb-3 p-2 bg-red-500/20 border border-red-500/50 rounded-lg">
+          <p className="text-xs text-red-400">{error}</p>
+        </div>
+      )}
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <button onClick={() => setForm({ ...form, type: 'money' })}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
+              form.type === 'money' ? 'bg-salon-500/20 text-salon-400 border border-salon-500/30' : 'bg-dark-surface text-dark-muted'}`}>
+            금액형 (정액권)
+          </button>
+          <button onClick={() => setForm({ ...form, type: 'count' })}
+            className={`flex-1 py-2 rounded-xl text-sm font-medium transition-all ${
+              form.type === 'count' ? 'bg-salon-500/20 text-salon-400 border border-salon-500/30' : 'bg-dark-surface text-dark-muted'}`}>
+            횟수형 (회원권)
+          </button>
+        </div>
+        <input id="membership-name" className="glass-input w-full text-sm" placeholder="회원권 이름 (예: 50만원 정액권)" value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        {form.type === 'money' ? (
+          <input id="membership-balance" type="number" className="glass-input w-full text-sm" placeholder="충전 금액 (원)" value={form.initial_balance}
+            onChange={(e) => setForm({ ...form, initial_balance: e.target.value })} />
+        ) : (
+          <>
+            <input id="membership-count" type="number" className="glass-input w-full text-sm" placeholder="사용 횟수 (회)" value={form.initial_count}
+              onChange={(e) => setForm({ ...form, initial_count: e.target.value })} />
+            <input id="membership-target" className="glass-input w-full text-sm" placeholder="대상 시술 (예: 두피 클리닉)" value={form.target_treatment}
+              onChange={(e) => setForm({ ...form, target_treatment: e.target.value })} />
+          </>
+        )}
+        <div>
+          <label htmlFor="membership-expiry" className="block text-xs text-dark-muted mb-1">유효기간 (선택)</label>
+          <input id="membership-expiry" type="date" className="glass-input w-full text-sm" value={form.expired_at}
+            onChange={(e) => setForm({ ...form, expired_at: e.target.value })} />
+        </div>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="btn-secondary text-xs flex-1">취소</button>
+          <button id="membership-submit" onClick={handleSubmit} className="btn-primary text-xs flex-1">등록</button>
         </div>
       </div>
     </div>

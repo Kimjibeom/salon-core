@@ -47,6 +47,12 @@ func (s *SaleService) Create(ctx context.Context, req *model.SaleCreateRequest) 
 		return nil, err
 	}
 
+	// Update customer visit history for direct POS sales.
+	// (Reservation-linked sales already update it when the reservation is completed.)
+	if req.CustomerID != "" && req.ReservationID == "" {
+		_ = s.customerRepo.UpdateLastVisit(ctx, req.CustomerID)
+	}
+
 	// Auto-deduct membership if used
 	if req.MembershipID != "" && req.MembershipAmount > 0 {
 		m, err := s.membershipRepo.GetByID(ctx, req.MembershipID)

@@ -9,6 +9,23 @@ import SaleEntryModal from '../pos/SaleEntryModal';
 
 type ViewMode = 'day' | 'week' | 'month';
 
+const toYMD = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function getViewRange(dateStr: string, mode: ViewMode): { start: string; end: string } {
+  const d = new Date(`${dateStr}T00:00:00`);
+  if (mode === 'week') {
+    const start = new Date(d);
+    start.setDate(d.getDate() - d.getDay()); // Sunday
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return { start: toYMD(start), end: toYMD(end) };
+  }
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: toYMD(start), end: toYMD(end) };
+}
+
 export default function ReservationsPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -25,11 +42,17 @@ export default function ReservationsPage() {
   const fetchReservations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await api.get<Reservation[]>(`/api/reservations?date=${selectedDate}`);
-      setReservations(data || []);
+      if (viewMode === 'day') {
+        const data = await api.get<Reservation[]>(`/api/reservations?date=${selectedDate}`);
+        setReservations(data || []);
+      } else {
+        const { start, end } = getViewRange(selectedDate, viewMode);
+        const data = await api.get<Reservation[]>(`/api/reservations/range?start_date=${start}&end_date=${end}`);
+        setReservations(data || []);
+      }
     } catch { setReservations([]); }
     setIsLoading(false);
-  }, [selectedDate]);
+  }, [selectedDate, viewMode]);
 
   const fetchWaitingQueue = useCallback(async () => {
     try {
@@ -61,15 +84,21 @@ export default function ReservationsPage() {
 
   useEffect(() => { fetchReservations(); fetchWaitingQueue(); fetchStaff(); fetchServices(); fetchCustomers(); }, [fetchReservations, fetchWaitingQueue, fetchStaff, fetchServices, fetchCustomers]);
 
+  // Refresh lists in real time when reservation/waiting-queue events arrive over WebSocket
+  useEffect(() => {
+    const handler = () => { fetchReservations(); fetchWaitingQueue(); };
+    window.addEventListener('salon-ws-event', handler);
+    return () => window.removeEventListener('salon-ws-event', handler);
+  }, [fetchReservations, fetchWaitingQueue]);
+
   const handleCreateReservation = async (formData: Record<string, string>) => {
-    try {
-      await api.post('/api/reservations', {
-        ...formData,
-        source: 'offline',
-      });
-      setShowModal(false);
-      fetchReservations();
-    } catch { /* error handled by API client */ }
+    // Errors propagate to the modal so the user sees why the reservation failed (e.g. time conflict)
+    await api.post('/api/reservations', {
+      ...formData,
+      source: 'offline',
+    });
+    setShowModal(false);
+    fetchReservations();
   };
 
   const handleStatusChange = async (id: string, status: string) => {
@@ -86,7 +115,12 @@ export default function ReservationsPage() {
 
   const handleSubmitSale = async (saleData: Record<string, unknown>) => {
     try {
-      await api.post('/api/sales', saleData);
+      // Link the sale to the reservation (and its customer) so history/analytics stay consistent
+      await api.post('/api/sales', {
+        ...saleData,
+        reservation_id: selectedReservationForSale?.id,
+        customer_id: saleData.customer_id || selectedReservationForSale?.customer_id || undefined,
+      });
       if (selectedReservationForSale) {
         await handleStatusChange(selectedReservationForSale.id, 'completed');
       }
@@ -97,19 +131,50 @@ export default function ReservationsPage() {
   };
 
   const handleAddWalkin = async (formData: Record<string, string>) => {
-    try {
-      await api.post('/api/reservations/waiting', {
-        ...formData,
-        source: 'offline',
-      });
-      setShowWalkinModal(false);
-      fetchWaitingQueue();
-    } catch (err: any) {
-      alert(err.message || '워크인 등록에 실패했습니다.');
-    }
+    await api.post('/api/reservations/waiting', formData);
+    setShowWalkinModal(false);
+    fetchWaitingQueue();
   };
 
   const hours = Array.from({ length: 14 }, (_, i) => i + 9); // 9:00 ~ 22:00
+
+  // Group reservations by date for week/month views (date may arrive as full timestamp)
+  const reservationsByDate = reservations.reduce<Record<string, Reservation[]>>((acc, r) => {
+    const key = (r.date || '').slice(0, 10);
+    (acc[key] = acc[key] || []).push(r);
+    return acc;
+  }, {});
+
+  const goToDay = (date: string) => {
+    setSelectedDate(date);
+    setViewMode('day');
+  };
+
+  const weekDates = (() => {
+    const { start } = getViewRange(selectedDate, 'week');
+    const base = new Date(`${start}T00:00:00`);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      return toYMD(d);
+    });
+  })();
+
+  const monthWeeks = (() => {
+    const d = new Date(`${selectedDate}T00:00:00`);
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    const cells: (string | null)[] = Array(first.getDay()).fill(null);
+    for (let day = 1; day <= last.getDate(); day++) {
+      cells.push(toYMD(new Date(d.getFullYear(), d.getMonth(), day)));
+    }
+    while (cells.length % 7 !== 0) cells.push(null);
+    const weeks: (string | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
+  })();
+
+  const DAY_NAMES = ['일', '월', '화', '수', '목', '금', '토'];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -140,12 +205,73 @@ export default function ReservationsPage() {
         {/* Calendar / Schedule View */}
         <div className="lg:col-span-2 glass-card p-4 overflow-hidden">
           <h3 className="text-lg font-semibold text-white mb-4">
-            {new Date(selectedDate).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}
+            {viewMode === 'day' && new Date(`${selectedDate}T00:00:00`).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}
+            {viewMode === 'week' && `${weekDates[0]} ~ ${weekDates[6]}`}
+            {viewMode === 'month' && new Date(`${selectedDate}T00:00:00`).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' })}
           </h3>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-20">
               <div className="loading-spinner w-8 h-8" />
+            </div>
+          ) : viewMode === 'week' ? (
+            <div className="grid grid-cols-7 gap-2 max-h-[600px] overflow-y-auto">
+              {weekDates.map((date, i) => {
+                const dayReservations = (reservationsByDate[date] || [])
+                  .slice()
+                  .sort((a, b) => a.start_time.localeCompare(b.start_time));
+                return (
+                  <div key={date} className="min-h-[120px]">
+                    <button
+                      onClick={() => goToDay(date)}
+                      className={`w-full text-center text-xs font-medium mb-2 py-1.5 rounded-lg transition-colors hover:bg-salon-500/20 ${
+                        date === selectedDate ? 'bg-salon-500/20 text-salon-400' : 'text-dark-muted'
+                      } ${i === 0 ? 'text-red-400' : ''}`}>
+                      {DAY_NAMES[i]}<br />{date.slice(8)}일
+                    </button>
+                    <div className="space-y-1">
+                      {dayReservations.map((r) => (
+                        <button key={r.id} onClick={() => goToDay(date)}
+                          className={`w-full text-left rounded-lg p-1.5 text-[11px] leading-tight border ${
+                            r.status === 'canceled' ? 'border-red-500/20 opacity-50' : 'border-dark-border/40'
+                          } bg-dark-surface/50 hover:border-salon-500/40 transition-colors`}>
+                          <span className="font-mono text-dark-muted">{formatTime(r.start_time)}</span>
+                          <span className="block font-medium text-white truncate">{r.customer_name}</span>
+                          {r.treatment_name && <span className="block text-salon-400 truncate">{r.treatment_name}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : viewMode === 'month' ? (
+            <div className="space-y-1">
+              <div className="grid grid-cols-7 gap-1">
+                {DAY_NAMES.map((name, i) => (
+                  <div key={name} className={`text-center text-xs py-1 ${i === 0 ? 'text-red-400' : 'text-dark-muted'}`}>{name}</div>
+                ))}
+              </div>
+              {monthWeeks.map((week, wi) => (
+                <div key={wi} className="grid grid-cols-7 gap-1">
+                  {week.map((date, di) => {
+                    if (!date) return <div key={di} className="min-h-[72px]" />;
+                    const dayReservations = reservationsByDate[date] || [];
+                    const activeCount = dayReservations.filter((r) => r.status !== 'canceled' && r.status !== 'no_show').length;
+                    return (
+                      <button key={date} onClick={() => goToDay(date)}
+                        className={`min-h-[72px] rounded-lg border p-1.5 text-left transition-colors hover:border-salon-500/40 ${
+                          date === selectedDate ? 'border-salon-500/50 bg-salon-500/5' : 'border-dark-border/30 bg-dark-surface/30'
+                        }`}>
+                        <span className={`text-xs font-medium ${di === 0 ? 'text-red-400' : 'text-dark-muted'}`}>{parseInt(date.slice(8), 10)}</span>
+                        {activeCount > 0 && (
+                          <span className="block mt-1 text-[11px] font-semibold text-salon-400">예약 {activeCount}건</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="space-y-1 max-h-[600px] overflow-y-auto">
@@ -283,7 +409,9 @@ export default function ReservationsPage() {
           initialData={{
             staff_id: selectedReservationForSale.staff_id || '',
             service_id: selectedReservationForSale.service_id || '',
+            customer_id: selectedReservationForSale.customer_id || '',
             item_name: selectedReservationForSale.treatment_name || '',
+            total_amount: String(serviceList.find((s) => s.id === selectedReservationForSale.service_id)?.price ?? ''),
             memo: selectedReservationForSale.memo || '',
           }}
         />

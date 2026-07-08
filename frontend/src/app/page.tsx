@@ -51,6 +51,8 @@ export default function Home() {
     setTimeout(() => {
       setNotifications((prev) => prev.filter((n) => n !== event));
     }, 8000);
+    // Relay to pages (e.g. reservations/waiting queue) so lists refresh in real time
+    window.dispatchEvent(new CustomEvent<WebSocketEvent>('salon-ws-event', { detail: event }));
   }, []);
 
   const { isConnected } = useWebSocket(staff ? handleWebSocketEvent : undefined);

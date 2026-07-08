@@ -9,6 +9,7 @@ export interface Staff {
   service_incentive_rate: number;
   product_incentive_rate: number;
   monthly_target: number;
+  day_off: number[];
   is_active: boolean;
   created_at: string;
   updated_at: string;

@@ -46,7 +46,9 @@ export default function POSPage() {
       await api.post('/api/sales', saleData);
       setShowSaleModal(false);
       fetchRecentSales();
-    } catch { /* error handled */ }
+    } catch (err: any) {
+      alert(err.message || '매출 등록에 실패했습니다.');
+    }
   };
 
   return (

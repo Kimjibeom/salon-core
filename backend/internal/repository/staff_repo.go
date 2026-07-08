@@ -123,6 +123,11 @@ func (r *StaffRepository) Update(ctx context.Context, id string, req *model.Staf
 		args = append(args, *req.MonthlyTarget)
 		argIdx++
 	}
+	if req.DayOff != nil {
+		setClauses = append(setClauses, fmt.Sprintf("day_off = $%d::int4[]", argIdx))
+		args = append(args, *req.DayOff)
+		argIdx++
+	}
 	if req.IsActive != nil {
 		setClauses = append(setClauses, fmt.Sprintf("is_active = $%d", argIdx))
 		args = append(args, *req.IsActive)

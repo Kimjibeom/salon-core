@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import api from '@/lib/api';
 import { formatCurrency, getPaymentLabel } from '@/lib/utils';
-import type { Staff, ServiceMenu } from '@/types';
+import type { Staff, ServiceMenu, Customer, Membership } from '@/types';
 
 export default function SaleEntryModal({ staffList, serviceList, onClose, onSubmit, initialData }: {
   staffList: Staff[];
@@ -13,6 +14,7 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
   initialData?: {
     staff_id?: string;
     service_id?: string;
+    customer_id?: string;
     item_name?: string;
     total_amount?: string;
     memo?: string;
@@ -21,6 +23,7 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
   const [form, setForm] = useState({
     staff_id: initialData?.staff_id || '',
     service_id: initialData?.service_id || '',
+    customer_id: initialData?.customer_id || '',
     item_name: initialData?.item_name || '',
     total_amount: initialData?.total_amount || '',
     category: 'service' as 'service' | 'product',
@@ -32,8 +35,12 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
     membership_id: '',
     memo: initialData?.memo || '',
   });
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
+  const [membershipList, setMembershipList] = useState<Membership[]>([]);
+  const [error, setError] = useState('');
 
   const totalAmount = parseFloat(form.total_amount) || 0;
+  const usesMembership = form.payment_method === 'membership' || form.payment_method === 'mixed';
 
   useEffect(() => {
     // If initialData has a service_id, try to figure out the category
@@ -44,6 +51,24 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
       }
     }
   }, [initialData, serviceList]);
+
+  useEffect(() => {
+    api.get<{ data: Customer[]; total: number }>('/api/customers?limit=100')
+      .then((res) => setCustomerList(res?.data || []))
+      .catch(() => setCustomerList([]));
+  }, []);
+
+  // Load the selected customer's active memberships (needed for balance deduction)
+  useEffect(() => {
+    if (!form.customer_id) {
+      setMembershipList([]);
+      setForm(prev => ({ ...prev, membership_id: '' }));
+      return;
+    }
+    api.get<Membership[]>(`/api/memberships/customer/${form.customer_id}`)
+      .then((data) => setMembershipList((data || []).filter(m => m.is_active)))
+      .catch(() => setMembershipList([]));
+  }, [form.customer_id]);
 
   const handlePaymentMethodChange = (method: string) => {
     setForm((prev) => ({
@@ -75,6 +100,11 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content max-w-xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-white mb-6">💳 영업 (결제) 입력</h2>
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg">
+            <p className="text-sm text-red-400">{error}</p>
+          </div>
+        )}
         <div className="space-y-4">
           {/* Staff Selection */}
           <div>
@@ -83,6 +113,18 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
               onChange={(e) => setForm({ ...form, staff_id: e.target.value })} required>
               <option value="">선택</option>
               {staffList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
+
+          {/* Customer Selection (required for membership payment) */}
+          <div>
+            <label htmlFor="sale-customer" className="block text-sm text-dark-muted mb-1">
+              고객 {usesMembership ? '* (정액권 결제 시 필수)' : '(선택)'}
+            </label>
+            <select id="sale-customer" className="glass-input w-full" value={form.customer_id}
+              onChange={(e) => setForm({ ...form, customer_id: e.target.value, membership_id: '' })}>
+              <option value="">선택 안함 (비회원)</option>
+              {customerList.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}
             </select>
           </div>
 
@@ -168,6 +210,30 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
             </div>
           )}
 
+          {/* Membership selection for deduction */}
+          {usesMembership && (
+            <div>
+              <label htmlFor="sale-membership" className="block text-sm text-dark-muted mb-1">사용할 회원권 *</label>
+              {form.customer_id ? (
+                membershipList.length > 0 ? (
+                  <select id="sale-membership" className="glass-input w-full" value={form.membership_id}
+                    onChange={(e) => setForm({ ...form, membership_id: e.target.value })}>
+                    <option value="">선택</option>
+                    {membershipList.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} — {m.type === 'money' ? `잔액 ${formatCurrency(m.balance)}` : `${m.remaining_count}회 남음`}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">해당 고객에게 사용 가능한 회원권이 없습니다.</p>
+                )
+              ) : (
+                <p className="text-sm text-amber-400 bg-amber-500/10 rounded-lg p-3">먼저 고객을 선택해주세요.</p>
+              )}
+            </div>
+          )}
+
           {/* Card commission */}
           {(form.payment_method === 'card' || form.payment_method === 'mixed') && (
             <div>
@@ -188,17 +254,36 @@ export default function SaleEntryModal({ staffList, serviceList, onClose, onSubm
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="btn-secondary flex-1">취소</button>
           <button id="sale-submit" onClick={() => {
+            setError('');
             const amount = parseFloat(form.total_amount) || 0;
+            if (!form.staff_id) { setError('담당 직원을 선택해주세요.'); return; }
+            if (!form.item_name) { setError('항목명을 입력해주세요.'); return; }
+            if (amount <= 0) { setError('총 금액을 입력해주세요.'); return; }
+
+            const cardAmount = form.payment_method === 'card' ? amount : form.payment_method === 'mixed' ? parseFloat(form.card_amount) || 0 : 0;
+            const cashAmount = form.payment_method === 'cash' ? amount : form.payment_method === 'mixed' ? parseFloat(form.cash_amount) || 0 : 0;
+            const membershipAmount = form.payment_method === 'membership' ? amount : form.payment_method === 'mixed' ? parseFloat(form.membership_amount) || 0 : 0;
+
+            if (form.payment_method === 'mixed' && cardAmount + cashAmount + membershipAmount !== amount) {
+              setError('복합 결제 금액의 합이 총 금액과 일치해야 합니다.');
+              return;
+            }
+            if (membershipAmount > 0 && !form.membership_id) {
+              setError('정액권 결제 시 고객과 사용할 회원권을 선택해주세요.');
+              return;
+            }
+
             onSubmit({
               staff_id: form.staff_id,
               service_id: form.service_id || undefined,
+              customer_id: form.customer_id || undefined,
               item_name: form.item_name,
               total_amount: amount,
               category: form.category,
               payment_method: form.payment_method,
-              card_amount: form.payment_method === 'card' ? amount : parseFloat(form.card_amount) || 0,
-              cash_amount: form.payment_method === 'cash' ? amount : parseFloat(form.cash_amount) || 0,
-              membership_amount: form.payment_method === 'membership' ? amount : parseFloat(form.membership_amount) || 0,
+              card_amount: cardAmount,
+              cash_amount: cashAmount,
+              membership_amount: membershipAmount,
               card_commission_rate: parseFloat(form.card_commission_rate) || 0,
               membership_id: form.membership_id || undefined,
               memo: form.memo,

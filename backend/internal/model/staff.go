@@ -42,6 +42,7 @@ type StaffUpdateRequest struct {
 	ServiceIncentiveRate *float64 `json:"service_incentive_rate" binding:"omitempty,gte=0,lte=100"`
 	ProductIncentiveRate *float64 `json:"product_incentive_rate" binding:"omitempty,gte=0,lte=100"`
 	MonthlyTarget        *float64 `json:"monthly_target" binding:"omitempty,gte=0"`
+	DayOff               *[]int   `json:"day_off" binding:"omitempty,dive,gte=0,lte=6"`
 	IsActive             *bool    `json:"is_active"`
 }
 

@@ -80,7 +80,7 @@ func (h *ReservationHandler) GetWaitingQueue(c *gin.Context) {
 }
 
 func (h *ReservationHandler) AddToWaitingQueue(c *gin.Context) {
-	var req model.ReservationCreateRequest
+	var req model.WaitingQueueCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
