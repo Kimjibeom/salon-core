@@ -40,7 +40,6 @@ export default function StaffPage() {
         ...form,
         service_incentive_rate: parseFloat(form.service_incentive_rate) || 0,
         product_incentive_rate: parseFloat(form.product_incentive_rate) || 0,
-        monthly_target: parseFloat(form.monthly_target) || 0,
       });
       setShowCreateModal(false);
       fetchData();
@@ -82,25 +81,11 @@ export default function StaffPage() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {performance.map((p) => (
           <div key={p.staff_id} className="glass-card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-salon-400 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                  {p.staff_name.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-semibold text-white">{p.staff_name}</p>
-                  <p className="text-xs text-dark-muted">목표: {formatCurrency(p.monthly_target)}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-salon-400 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                {p.staff_name.charAt(0)}
               </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-white">{Math.round(p.achievement_rate)}%</p>
-                <p className="text-xs text-dark-muted">달성률</p>
-              </div>
-            </div>
-
-            {/* Achievement Gauge */}
-            <div className="gauge-track h-3 mb-4">
-              <div className="gauge-fill" style={{ width: `${Math.min(p.achievement_rate, 100)}%` }} />
+              <p className="font-semibold text-white">{p.staff_name}</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -190,7 +175,6 @@ export default function StaffPage() {
                 <th className="table-header text-left">직급</th>
                 <th className="table-header text-right">시술 수수료율</th>
                 <th className="table-header text-right">점판 수수료율</th>
-                <th className="table-header text-right">월 목표</th>
                 <th className="table-header text-center">휴무일</th>
                 <th className="table-header text-center">관리</th>
               </tr>
@@ -206,7 +190,6 @@ export default function StaffPage() {
                   </td>
                   <td className="table-cell text-right">{s.service_incentive_rate}%</td>
                   <td className="table-cell text-right">{s.product_incentive_rate}%</td>
-                  <td className="table-cell text-right">{formatCurrency(s.monthly_target)}</td>
                   <td className="table-cell text-center text-dark-muted">
                     {s.day_off && s.day_off.length > 0 ? s.day_off.map((d) => DAY_NAMES[d]).join(', ') : '-'}
                   </td>
@@ -254,7 +237,6 @@ function EditStaffModal({ staff, onClose, onSubmit }: { staff: Staff; onClose: (
     phone: staff.phone || '',
     service_incentive_rate: String(staff.service_incentive_rate),
     product_incentive_rate: String(staff.product_incentive_rate),
-    monthly_target: String(staff.monthly_target),
     day_off: staff.day_off || [],
   });
 
@@ -306,11 +288,6 @@ function EditStaffModal({ staff, onClose, onSubmit }: { staff: Staff; onClose: (
             </div>
           </div>
           <div>
-            <label htmlFor="edit-staff-target" className="block text-sm text-dark-muted mb-1">월 목표 (원)</label>
-            <input id="edit-staff-target" type="number" className="glass-input w-full" value={form.monthly_target}
-              onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} />
-          </div>
-          <div>
             <label className="block text-sm text-dark-muted mb-2">휴무일 (자체 예약 사이트에서 해당 요일 예약이 차단됩니다)</label>
             <div className="flex gap-2">
               {DAY_NAMES.map((name, day) => (
@@ -334,7 +311,6 @@ function EditStaffModal({ staff, onClose, onSubmit }: { staff: Staff; onClose: (
             phone: form.phone,
             service_incentive_rate: parseFloat(form.service_incentive_rate) || 0,
             product_incentive_rate: parseFloat(form.product_incentive_rate) || 0,
-            monthly_target: parseFloat(form.monthly_target) || 0,
             day_off: form.day_off,
           })} className="btn-primary flex-1">저장</button>
         </div>
@@ -347,7 +323,6 @@ function CreateStaffModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'designer',
     phone: '', service_incentive_rate: '30', product_incentive_rate: '10',
-    monthly_target: '5000000',
   });
 
   return (
@@ -399,11 +374,6 @@ function CreateStaffModal({ onClose, onSubmit }: { onClose: () => void; onSubmit
               <input id="staff-product-rate" type="number" className="glass-input w-full" value={form.product_incentive_rate}
                 onChange={(e) => setForm({ ...form, product_incentive_rate: e.target.value })} />
             </div>
-          </div>
-          <div>
-            <label htmlFor="staff-target" className="block text-sm text-dark-muted mb-1">월 목표 (원)</label>
-            <input id="staff-target" type="number" className="glass-input w-full" value={form.monthly_target}
-              onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} />
           </div>
         </div>
         <div className="flex gap-3 mt-6">

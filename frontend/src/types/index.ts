@@ -8,7 +8,6 @@ export interface Staff {
   phone?: string;
   service_incentive_rate: number;
   product_incentive_rate: number;
-  monthly_target: number;
   day_off: number[];
   is_active: boolean;
   created_at: string;
@@ -182,11 +181,9 @@ export interface PaymentBreakdown {
 export interface StaffPerformance {
   staff_id: string;
   staff_name: string;
-  monthly_target: number;
   service_revenue: number;
   product_revenue: number;
   total_revenue: number;
-  achievement_rate: number;
   service_incentive: number;
   product_incentive: number;
   total_incentive: number;
