@@ -37,6 +37,8 @@ type StaffCreateRequest struct {
 // StaffUpdateRequest is the request body for updating a staff member.
 type StaffUpdateRequest struct {
 	Name                 *string  `json:"name" binding:"omitempty,max=100"`
+	Email                *string  `json:"email" binding:"omitempty,email,max=255"`
+	Password             *string  `json:"password" binding:"omitempty,min=8,max=128"`
 	Role                 *string  `json:"role" binding:"omitempty,oneof=admin designer staff"`
 	Phone                *string  `json:"phone" binding:"omitempty,max=20"`
 	ServiceIncentiveRate *float64 `json:"service_incentive_rate" binding:"omitempty,gte=0,lte=100"`

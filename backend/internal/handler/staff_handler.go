@@ -3,6 +3,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Kimjibeom/salon-core/backend/internal/model"
 	"github.com/Kimjibeom/salon-core/backend/internal/service"
@@ -43,7 +44,19 @@ func (h *StaffHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
 		return
 	}
+	// binding:"omitempty" skips validation for empty strings, so handle them here
+	if req.Email != nil && strings.TrimSpace(*req.Email) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email cannot be empty"})
+		return
+	}
+	if req.Password != nil && *req.Password == "" {
+		req.Password = nil
+	}
 	if err := h.staffService.Update(c.Request.Context(), id, &req); err != nil {
+		if strings.Contains(err.Error(), "staffs_email_key") || strings.Contains(err.Error(), "duplicate key value") {
+			c.JSON(http.StatusConflict, gin.H{"error": "이미 등록된 이메일입니다."})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update staff"})
 		return
 	}

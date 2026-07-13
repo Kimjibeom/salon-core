@@ -86,8 +86,9 @@ func (r *StaffRepository) List(ctx context.Context) ([]model.Staff, error) {
 	return staffs, rows.Err()
 }
 
-// Update modifies an existing staff record.
-func (r *StaffRepository) Update(ctx context.Context, id string, req *model.StaffUpdateRequest) error {
+// Update modifies an existing staff record. passwordHash, when non-nil,
+// must already be bcrypt-hashed by the caller.
+func (r *StaffRepository) Update(ctx context.Context, id string, req *model.StaffUpdateRequest, passwordHash *string) error {
 	query := `UPDATE staffs SET `
 	args := []interface{}{}
 	argIdx := 1
@@ -96,6 +97,16 @@ func (r *StaffRepository) Update(ctx context.Context, id string, req *model.Staf
 	if req.Name != nil {
 		setClauses = append(setClauses, fmt.Sprintf("name = $%d", argIdx))
 		args = append(args, *req.Name)
+		argIdx++
+	}
+	if req.Email != nil {
+		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIdx))
+		args = append(args, *req.Email)
+		argIdx++
+	}
+	if passwordHash != nil {
+		setClauses = append(setClauses, fmt.Sprintf("password_hash = $%d", argIdx))
+		args = append(args, *passwordHash)
 		argIdx++
 	}
 	if req.Role != nil {

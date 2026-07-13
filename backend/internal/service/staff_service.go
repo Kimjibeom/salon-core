@@ -3,9 +3,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Kimjibeom/salon-core/backend/internal/model"
 	"github.com/Kimjibeom/salon-core/backend/internal/repository"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // StaffService handles business logic for staff management.
@@ -26,7 +28,16 @@ func (s *StaffService) List(ctx context.Context) ([]model.Staff, error) {
 }
 
 func (s *StaffService) Update(ctx context.Context, id string, req *model.StaffUpdateRequest) error {
-	return s.staffRepo.Update(ctx, id, req)
+	var passwordHash *string
+	if req.Password != nil {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+		h := string(hashed)
+		passwordHash = &h
+	}
+	return s.staffRepo.Update(ctx, id, req, passwordHash)
 }
 
 func (s *StaffService) Delete(ctx context.Context, id string) error {

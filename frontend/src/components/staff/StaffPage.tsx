@@ -233,12 +233,36 @@ export default function StaffPage() {
 function EditStaffModal({ staff, onClose, onSubmit }: { staff: Staff; onClose: () => void; onSubmit: (data: Record<string, unknown>) => void }) {
   const [form, setForm] = useState({
     name: staff.name,
+    email: staff.email || '',
+    password: '',
     role: staff.role as string,
     phone: staff.phone || '',
     service_incentive_rate: String(staff.service_incentive_rate),
     product_incentive_rate: String(staff.product_incentive_rate),
     day_off: staff.day_off || [],
   });
+
+  const handleSubmit = () => {
+    if (!form.email.trim()) {
+      alert('이메일을 입력해주세요.');
+      return;
+    }
+    if (form.password && form.password.length < 8) {
+      alert('비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+    const data: Record<string, unknown> = {
+      name: form.name,
+      email: form.email,
+      role: form.role,
+      phone: form.phone,
+      service_incentive_rate: parseFloat(form.service_incentive_rate) || 0,
+      product_incentive_rate: parseFloat(form.product_incentive_rate) || 0,
+      day_off: form.day_off,
+    };
+    if (form.password) data.password = form.password;
+    onSubmit(data);
+  };
 
   const toggleDayOff = (day: number) => {
     setForm((prev) => ({
@@ -270,10 +294,23 @@ function EditStaffModal({ staff, onClose, onSubmit }: { staff: Staff; onClose: (
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="edit-staff-email" className="block text-sm text-dark-muted mb-1">이메일 *</label>
+              <input id="edit-staff-email" type="email" className="glass-input w-full" value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+            </div>
+            <div>
+              <label htmlFor="edit-staff-phone" className="block text-sm text-dark-muted mb-1">연락처</label>
+              <input id="edit-staff-phone" type="tel" className="glass-input w-full" value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
+            </div>
+          </div>
           <div>
-            <label htmlFor="edit-staff-phone" className="block text-sm text-dark-muted mb-1">연락처</label>
-            <input id="edit-staff-phone" type="tel" className="glass-input w-full" value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="010-0000-0000" />
+            <label htmlFor="edit-staff-password" className="block text-sm text-dark-muted mb-1">비밀번호 (변경 시에만 입력, 8자 이상)</label>
+            <input id="edit-staff-password" type="password" className="glass-input w-full" value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              placeholder="변경하지 않으려면 비워두세요" minLength={8} autoComplete="new-password" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -305,14 +342,7 @@ function EditStaffModal({ staff, onClose, onSubmit }: { staff: Staff; onClose: (
         </div>
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="btn-secondary flex-1">취소</button>
-          <button id="edit-staff-submit" onClick={() => onSubmit({
-            name: form.name,
-            role: form.role,
-            phone: form.phone,
-            service_incentive_rate: parseFloat(form.service_incentive_rate) || 0,
-            product_incentive_rate: parseFloat(form.product_incentive_rate) || 0,
-            day_off: form.day_off,
-          })} className="btn-primary flex-1">저장</button>
+          <button id="edit-staff-submit" onClick={handleSubmit} className="btn-primary flex-1">저장</button>
         </div>
       </div>
     </div>
